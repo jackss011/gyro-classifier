@@ -30,18 +30,21 @@ class BasicBlock(nn.Module):
 
     def __init__(self, inplanes, planes, delta=0.3, stride=1, downsample=None, do_bntan=True):
         super(BasicBlock, self).__init__()
+
         self.conv1 = Ternaryconv3x3(inplanes, planes, delta, stride) 
         self.bn1 = nn.BatchNorm2d(planes)
         self.tanh1 = nn.Hardtanh(inplace=True)
+
         self.conv2 = Ternaryconv3x3(planes, planes, delta)
         self.tanh2 = nn.Hardtanh(inplace=True)
         self.bn2 = nn.BatchNorm2d(planes)
+
         self.delta = delta
         self.downsample = downsample
         self.do_bntan = do_bntan  
         self.stride = stride
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         residual = x.clone()
         out = self.conv1(x)
         out = self.bn1(out)
@@ -64,18 +67,21 @@ class Bottleneck(nn.Module):
 
     def __init__(self, inplanes, planes, delta=0.3, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
+
         self.conv1 = TernarizeConv2d(inplanes, planes, delta=delta, kernel_size=1, bias=False)  
         self.bn1 = nn.BatchNorm2d(planes) 
-        self.conv2 = TernarizeConv2d(planes, planes, delta=delta, kernel_size=3, stride=stride, padding=1,
-                                     bias=False) 
+
+        self.conv2 = TernarizeConv2d(planes, planes, delta=delta, kernel_size=3, stride=stride, padding=1, bias=False) 
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = TernarizeConv2d(planes, planes * 4, delta=delta, kernel_size=1,
-                                     bias=False)  
+
+        self.conv3 = TernarizeConv2d(planes, planes * 4, delta=delta, kernel_size=1, bias=False)  
         self.bn3 = nn.BatchNorm2d(planes * 4)
+
         self.tanh = nn.Hardtanh(inplace=True)  
         self.delta = delta
         self.downsample = downsample
         self.stride = stride
+
 
     def forward(self, x):
         residual = x 
@@ -103,42 +109,50 @@ class ResNet(nn.Module):
     def __init__(self):
         super(ResNet, self).__init__()
 
-    def _make_layer(self, block, planes, blocks, delta=0.3, stride=1,
-                    do_bntan=True):  
+
+    def _make_layer(self, block, planes, blocks, delta=0.3, stride=1, do_bntan=True):  
         downsample = None
+
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(TernarizeConv2d(self.inplanes, planes * block.expansion,
-                                                       delta=delta, kernel_size=1, stride=stride, bias=False),
-                                       nn.BatchNorm2d(planes * block.expansion))
-        layers = []  
-        layers.append(block(self.inplanes, planes, delta=delta, stride=stride,
-                            downsample=downsample)) 
+            downsample = nn.Sequential(
+                TernarizeConv2d(self.inplanes,  planes * block.expansion, delta=delta, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion)
+            )
+
+        layers = [block(self.inplanes, planes, delta=delta, stride=stride, downsample=downsample)] 
+
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks - 1):
-            layers.append(block(self.inplanes, planes,
-                                delta=delta))  
+
+        for _ in range(1, blocks - 1):
+            layers.append(block(self.inplanes, planes, delta=delta))
+
         layers.append(block(self.inplanes, planes, delta=delta, do_bntan=do_bntan))  
         return nn.Sequential(*layers) 
 
+
     def forward(self, x):
-        x = self.conv1(
-            x)  
-        x = self.maxpool(
-            x) 
+        x = self.conv1(x)  
+        x = self.maxpool(x) 
         x = self.bn1(x)
         x = self.tanh1(x)
+
         x = self.layer1(x) 
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+
         x = self.avgpool(x)
+
         x = x.view(x.size(0), -1) 
         x = self.bn2(x)
         x = self.tanh2(x)
+
         x = self.fc(x)
         x = self.bn3(x)
+
         x = self.logsoftmax(x)
         return x
+
 
     def count_not_ternary(self):
         count = 0
@@ -221,18 +235,21 @@ class ResNet(nn.Module):
 
 class ResNet_imagenet(ResNet):  
     def __init__(self, num_classes=1000, block=Bottleneck, layers=[3, 4, 23, 3], delta=0.3):
+
         super(ResNet_imagenet, self).__init__()
         self.delta = delta
         self.inplanes = 64
+        
         self.conv1 = TernarizeConv2d(3, 64, delta=delta, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.tanh = nn.Hardtanh(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0],
-                                       delta=delta)  
+
+        self.layer1 = self._make_layer(block, 64, layers[0], delta=delta)  
         self.layer2 = self._make_layer(block, 128, layers[1], delta=delta, stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], delta=delta, stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], delta=delta, stride=2)
+
         self.avgpool = nn.AvgPool2d(7)
         self.fc = TernarizeLinear(512 * block.expansion, num_classes, delta=delta)
 
@@ -287,11 +304,9 @@ class ResNet_cifar10(ResNet):
                        220: {'lr': 1e-5}}
         '''
 
-def resnet_ternary(
-        **kwargs):  
-    num_classes, depth, dataset, delta = map(
-        kwargs.get, ['num_classes', 'depth', 'dataset',
-                     'delta']) 
+def resnet_ternary(**kwargs):  
+    num_classes, depth, dataset, delta = map(kwargs.get, ['num_classes', 'depth', 'dataset', 'delta'])
+
     if dataset == 'imagenet':
         num_classes = num_classes or 1000
         depth = depth or 50
@@ -305,7 +320,6 @@ def resnet_ternary(
             return ResNet_imagenet(num_classes=num_classes, block=Bottleneck, layers=[3, 4, 23, 3], delta=delta)
         if depth == 152:
             return ResNet_imagenet(num_classes=num_classes, block=Bottleneck, layers=[3, 8, 36, 3], delta=delta)
-
     elif dataset == 'cifar10':
         num_classes = num_classes or 10
         depth = depth or 18

@@ -117,16 +117,15 @@ def adjust_optimizer(optimizer, epoch, config):
     """Reconfigures the optimizer according to epoch and config dict"""
     def modify_optimizer(optimizer, setting):
         if 'optimizer' in setting:
-            optimizer = __optimizers[setting['optimizer']](
-                optimizer.param_groups)
-            logging.debug('OPTIMIZER - setting method = %s' %
-                          setting['optimizer'])
+            optimizer = __optimizers[setting['optimizer']](optimizer.param_groups)
+            logging.debug('OPTIMIZER - setting method = %s' % setting['optimizer'])
+
         for param_group in optimizer.param_groups:
             for key in param_group.keys():
                 if key in setting:
-                    logging.debug('OPTIMIZER - setting %s = %s' %
-                                  (key, setting[key]))
+                    logging.debug('OPTIMIZER - setting %s = %s' % (key, setting[key]))
                     param_group[key] = setting[key]
+
         return optimizer
 
     if callable(config):
@@ -139,14 +138,14 @@ def adjust_optimizer(optimizer, epoch, config):
     return optimizer
 
 
-def accuracy(output, target, topk=(1,)):
+def accuracy(output: torch.Tensor, target: torch.Tensor, topk: tuple[int]=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
     batch_size = target.size(0)
 
-    _, pred = output.float().topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+    _, pred = output.float().topk(maxk, 1, True, True) # _, (batch, maxk)
+    pred = pred.t() # (maxk, batch)
+    correct = pred.eq(target.view(1, -1).expand_as(pred)) # target:(batch) -> (1, batch) -> (maxk, batch)
 
     res = []
     for k in topk:
@@ -158,3 +157,21 @@ def accuracy(output, target, topk=(1,)):
     # kernel_img.add_(-kernel_img.min())
     # kernel_img.mul_(255 / kernel_img.max())
     # save_image(kernel_img, 'kernel%s.jpg' % epoch)
+
+
+def accuracy_topk(output: torch.Tensor, target_classes: torch.Tensor, topk: tuple[int]=(1,)):
+    _, pred_classes = output.topk(max(topk), dim=1, sorted=True) # (batch, k)
+    correct = torch.eq(target_classes.view(-1, 1), pred_classes) # (batch, k)
+
+    acc = correct.cumsum(dim=1).mean(dim=0, dtype=torch.float32) * 100
+    return [acc[k-1].item() for k in topk]
+
+
+
+if __name__ == '__main__':
+    output = torch.Tensor([[0.25, 0.2, 0.3], [0.5, 0.01, 0.1], [0.1, .3, .6]])
+    target = torch.Tensor([2, 1, 1])
+
+    topk= (1,2)
+    print(accuracy(output, target, topk=topk))
+    print(accuracy_topk(output, target, topk=topk))

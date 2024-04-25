@@ -4,6 +4,9 @@ from models import CNN
 import os
 import torch.nn as nn
 import argparse
+from torch.utils.tensorboard import SummaryWriter
+from pathlib import Path
+from datetime import datetime
 
 
 def parse_args():
@@ -13,6 +16,10 @@ def parse_args():
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Setup tensorboard
+logs_path = Path('./logs') / datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+writer = SummaryWriter(log_dir=logs_path)
 
 # Fix the seed
 torch.manual_seed(1310)
@@ -62,6 +69,7 @@ ckpt_path = args.load_ckpt
 
 if ckpt_path is None:
     for epoch in range(num_epochs):
+        epoch_loss = 0
         # The train loader take one batch after the other
         for i, (signals, labels) in enumerate(trainLoader):
             signals = signals.to(device)
@@ -71,13 +79,18 @@ if ckpt_path is None:
             outputs = modelDataRaw_1(signals)
             loss = cost(outputs, labels)
 
+            loss_item = loss.item()
+            epoch_loss += loss_item
+
             # Backward and optimize
             optimizer.zero_grad()  # We set the previous gradient to zero: pythorch use the gradient t-1 to compute the gradient at step t
             loss.backward()
             optimizer.step()
 
             if (i + 1) % 11 == 0:
-                print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{total_step}], Loss: {loss.item():.4f}')
+                print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{total_step}], Loss: {loss_item:.5f}')
+
+        writer.add_scalar("TRAIN LOSS", epoch_loss/len(trainLoader), epoch)
 
     # save the model
     torch.save(modelDataRaw_1.state_dict(), os.path.join('..', 'models', 'modelDataRaw_1.ckpt'))
@@ -96,7 +109,9 @@ with torch.no_grad():  # Disable the computation of the gradient
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
-    print('Accuracy of the network on the train signals: {} %'.format(100 * correct / total))
+    train_acc = 100 * correct / total
+    print('Accuracy of the network on the train signals: {}%'.format(train_acc))
+    writer.add_scalar("TRAIN ACC", train_acc, epoch)
 
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
@@ -112,4 +127,7 @@ with torch.no_grad():  # Disable the computation of the gradient
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
-    print('Accuracy of the network on the test signals: {} %'.format(100 * correct / total))
+    test_acc = 100 * correct / total
+
+    print('Accuracy of the network on the test signals: {} %'.format(test_acc))
+    writer.add_scalar("TEST ACC", test_acc, epoch)

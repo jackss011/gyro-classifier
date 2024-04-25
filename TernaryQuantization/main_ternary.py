@@ -174,10 +174,8 @@ def main():
 
     # Data loading code                                     
     default_transform = {
-        'train': get_transform(args.dataset,
-                               input_size=args.input_size, augment=True),
-        'eval': get_transform(args.dataset,
-                              input_size=args.input_size, augment=False)
+        'train': get_transform(args.dataset, input_size=args.input_size, augment=True),
+        'eval': get_transform(args.dataset, input_size=args.input_size, augment=False)
     }
     transform = getattr(model, 'input_transform', default_transform)
     regime = getattr(model, 'regime', {0: {'optimizer': args.optimizer, 'lr': args.lr, 'momentum': args.momentum,

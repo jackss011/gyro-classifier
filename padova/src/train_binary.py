@@ -18,9 +18,10 @@ def parse_args():
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # save path
+exp_name = 'binary1'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-logs_path = os.path.join('./logs/', time_name + '-last_non_binary')
-save_path = os.path.join('./results/', time_name + '-last_non_binary')
+logs_path = os.path.join('./logs/', f"{exp_name}__{time_name}")
+save_path = os.path.join('./results/', f"{exp_name}__{time_name}")
 os.makedirs(logs_path)
 os.makedirs(save_path)
 
@@ -56,6 +57,8 @@ testData = list()
 for i in range(len(XtestRaw1)):
     sample = [XtestRaw1[i]]
     testData.append((torch.tensor(sample, dtype=torch.float32), Ytest1[i] - 1))
+
+
 
 # Train data loader
 trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_size, shuffle=True)
