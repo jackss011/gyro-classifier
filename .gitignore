@@ -1,0 +1,8 @@
+*.pdf
+logs
+*.ckpt
+*.pt
+dataset
+data
+results
+__pycache__
