@@ -227,7 +227,7 @@ def main():
         n_ones_perc = model.count_one_weights() / num_parameters * 100
         n_minus_ones_perc = model.count_minus_one_weights() / num_parameters * 100
         probabilities = torch.tensor([n_zeroes_perc / 100, n_ones_perc / 100, n_minus_ones_perc / 100])
-        entropy  = -torch.sum(probabilities * torch.log2(probabilities + 1e-9)).item()
+        entropy = -torch.sum(probabilities * torch.log2(probabilities + 1e-9)).item()
         print('% of parameters set to 0: ', str(n_zeroes_perc))
 
         # plot histograms, uncomment below to save histograms every 10 epochs and below 50 epoch

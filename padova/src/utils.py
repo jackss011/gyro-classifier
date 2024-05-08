@@ -17,4 +17,9 @@ def clamp_model_parameters(model: nn.Module):
         if hasattr(param, 'original'):
             data_clamped = param.data.clamp_(-1, 1)
             param.original.copy_(data_clamped)
+
+
+def hparams_to_folder(hparams: dict) -> str:
+    x = [f"{k}={v}" for k, v in hparams.items()]
+    return "_".join(x)
     

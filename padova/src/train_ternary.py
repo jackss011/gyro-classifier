@@ -1,12 +1,16 @@
 import torch
 import os
 import torch.nn as nn
+import torchaudio
 import argparse
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
+from delta_regimes import *
+import utils
 
 from dataloading import loadX, loadY
 from models_ternary import CNN_ternary
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -14,23 +18,42 @@ def parse_args():
     return parser.parse_args()
 
 
-# choose device
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# save path
-exp_name = 'ternary1'
+
+# Hyperparameters
+batch_size = 200
+learning_rate = 0.01
+# delta = 0.1 #0.01 #same as #0.1 #0.2 ~same with more zeros (80%) 
+momentum = 0.9
+weight_decay = 0.0001 # 0.001
+layer_inflation = 1 # all model x2, no effect, all model /2 -1.5%
+# SNR = 15
+delta_regime = DeltaRegime_Sqrt(0, 0.3, max_at_epoch=50)
+
+hparams = dict(batch=batch_size, lr=learning_rate, m=momentum, wd=weight_decay, dreg=delta_regime.name, dmin=delta_regime.min, dmax=delta_regime.max, dmaxep=delta_regime.max_at_epoch)
+
+# training paths
+exp_name = 'ternary1-delta-regime'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-logs_path = os.path.join('./logs/', f"{exp_name}__{time_name}")
-save_path = os.path.join('./results/', f"{exp_name}__{time_name}")
+hparam_name = utils.hparams_to_folder(hparams)
+folder = f"{exp_name}/{time_name}/{hparam_name}"
+
+logs_path = os.path.join('./logs/', folder)
+save_path = os.path.join('./results/', folder)
+                         
 os.makedirs(logs_path)
 os.makedirs(save_path)
 
 # Random seed
 # torch.manual_seed(1310)
 
+# choose device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 # Setup tensorboard
 writer = SummaryWriter(log_dir=logs_path)
 
+# dataset stuff
 dataset_folder = os.path.join('..', 'dataset', 'dataset1')
 # Read the training set
 XtrainRaw1 = loadX(os.path.join(dataset_folder, 'train', r'Inertial Signals'), "train")
@@ -44,12 +67,6 @@ Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 num_classes = int(max(Ytrain1))
 print("Number of classes: ", num_classes)
 
-# Hyperparameters
-batch_size = 200
-learning_rate = 0.01
-delta = 0.01 #0.01
-momentum = 0.9
-weight_decay = 0.0001 # 0.001
 
 # Create the tensor for training
 trainData = list()
@@ -63,8 +80,6 @@ for i in range(len(XtestRaw1)):
     sample = [XtestRaw1[i]]
     testData.append((torch.tensor(sample, dtype=torch.float32), Ytest1[i] - 1))
 
-
-
 # Train data loader
 trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_size, shuffle=True)
 
@@ -72,7 +87,7 @@ trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_si
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 # Instantiate the CNN
-model = CNN_ternary(num_classes, delta=delta).to(device)
+model = CNN_ternary(num_classes, delta=delta_regime.get(0), layer_inflation=layer_inflation).to(device)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
@@ -98,9 +113,23 @@ else:
 for epoch in range(0, num_epochs):
     # training
     epoch_loss = 0.0
+
+    delta = delta_regime.get(epoch)
+    model.set_delta(delta)
+    writer.add_scalar("DELTA", delta, epoch)
+
     for i, (signals, labels) in enumerate(trainLoader):
-        signals = signals.to(device)
-        labels = labels.to(device)
+        signals: torch.Tensor = signals.to(device)
+        labels: torch.Tensor = labels.to(device)
+
+        # normalize
+        # signals = torch.nn.functional.normalize(signals, p=1.0, dim=(-1, -2))
+
+        # add noise
+        # noise = torch.rand_like(signals, device=device) - 0.5
+        # snr = torch.ones((signals.size(0), 1, 6), device=device) * SNR
+        # # print(signals.size(), noise.size())
+        # signals = torchaudio.functional.add_noise(signals, noise, snr=snr)
 
         # Forward pass
         outputs = model(signals)
@@ -135,8 +164,18 @@ for epoch in range(0, num_epochs):
 
         print(*optimizer.param_groups)
 
+    # if epoch == 225:
+    #     for group in optimizer.param_groups:
+    #         group['lr'] /= 10
+    #         # group['weight_decay'] /= 10
+
+
     # once every n epochs
     if epoch % 10 == 0:
+        # track entropy of model weights
+        weights_entropy = model.get_weights_entropy()
+        writer.add_scalar("WEIGHTS ENTROPY", weights_entropy, epoch)
+
         # validation on training
         with torch.no_grad():  # Disable the computation of the gradient
             correct = 0

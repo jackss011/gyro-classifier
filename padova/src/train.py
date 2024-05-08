@@ -18,7 +18,9 @@ def parse_args():
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Setup tensorboard
-logs_path = Path('./logs') / datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+exp_name = "f32"
+time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+logs_path = Path('./logs') / f"{exp_name}__{time_name}"
 writer = SummaryWriter(log_dir=logs_path)
 
 # Fix the seed
@@ -53,19 +55,24 @@ for i in range(len(XtestRaw1)):
 # Train loader
 trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_size, shuffle=True)
 
+# Test loader
+testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
+
 # Instantiate the CNN
-modelDataRaw_1 = CNN(numClasses).to(device)
+model = CNN(numClasses).to(device)
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
 # Setting the optimizer with the model parameters and learning rate
-optimizer = torch.optim.Adam(modelDataRaw_1.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # Define the total step to print how many steps are remaining when training
 total_step = len(trainLoader)
 # Number of epochs
-num_epochs = 200
+num_epochs = 1000
 
 args = parse_args()
 ckpt_path = args.load_ckpt
+
+best_test = 0.0
 
 if ckpt_path is None:
     for epoch in range(num_epochs):
@@ -76,7 +83,7 @@ if ckpt_path is None:
             labels = labels.to(device)
 
             # Forward pass
-            outputs = modelDataRaw_1(signals)
+            outputs = model(signals)
             loss = cost(outputs, labels)
 
             loss_item = loss.item()
@@ -91,20 +98,61 @@ if ckpt_path is None:
                 print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{total_step}], Loss: {loss_item:.5f}')
 
         writer.add_scalar("TRAIN LOSS", epoch_loss/len(trainLoader), epoch)
+        
+        # once every n epochs
+        if epoch % 10 == 0:
+            # validation on training
+            with torch.no_grad():  # Disable the computation of the gradient
+                correct = 0
+                total = 0
+                for signals, labels in trainLoader:  # The trainLoader is already defined for the training phase
+                    signals = signals.to(device)
+                    labels = labels.to(device)
+                    outputs = model(signals)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += labels.size(0)
+                    correct += (predicted == labels).sum().item()
 
+                train_acc = 100 * correct / total
+                print('TRAIN ACC: {} %'.format(train_acc))
+                writer.add_scalar("TRAIN ACC", train_acc, epoch)
+
+            # validation on test
+            with torch.no_grad():  # Disable the computation of the gradient
+                correct = 0
+                total = 0
+                # Iterate for each signal
+                for signals, labels in testLoader:
+                    signals = signals.to(device)
+                    labels = labels.to(device)
+                    outputs = model(signals)  # If batch_size>1, than the outputs is a matrix
+                    _, predicted = torch.max(outputs.data, 1)  # The maximum value corresponds to the predicted subject
+                    total += labels.size(0)
+                    correct += (predicted == labels).sum().item()
+
+                test_acc = 100 * correct / total
+                print('TEST ACC: {} %'.format(test_acc))
+                writer.add_scalar("TEST ACC", test_acc, epoch)
+
+                if best_test < (100 * correct / total):
+                    best_test = 100 * correct / total
+                    # torch.save(model.state_dict(), ckpt_path)
+                    print('Better model found!')
+                print('BEST TEST ACC: {} %'.format(best_test))
+                writer.add_scalar("BEST TEST ACC", best_test, epoch)
     # save the model
-    torch.save(modelDataRaw_1.state_dict(), os.path.join('..', 'models', 'modelDataRaw_1.ckpt'))
-    ckpt_path = os.path.join('..', 'models', 'modelDataRaw_1.ckpt')
+    # torch.save(modelDataRaw_1.state_dict(), os.path.join('..', 'models', 'modelDataRaw_1.ckpt'))
+    # ckpt_path = os.path.join('..', 'models', 'modelDataRaw_1.ckpt')
 
 # Load the model
-modelDataRaw_1.load_state_dict(torch.load(ckpt_path))
+model.load_state_dict(torch.load(ckpt_path))
 with torch.no_grad():  # Disable the computation of the gradient
     correct = 0
     total = 0
     for signals, labels in trainLoader:  # The trainLoader is already defined for the training phase
         signals = signals.to(device)
         labels = labels.to(device)
-        outputs = modelDataRaw_1(signals)
+        outputs = model(signals)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
@@ -113,7 +161,6 @@ with torch.no_grad():  # Disable the computation of the gradient
     print('Accuracy of the network on the train signals: {}%'.format(train_acc))
     writer.add_scalar("TRAIN ACC", train_acc, epoch)
 
-testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 with torch.no_grad():  # Disable the computation of the gradient
     correct = 0
@@ -122,7 +169,7 @@ with torch.no_grad():  # Disable the computation of the gradient
     for signals, labels in testLoader:
         signals = signals.to(device)
         labels = labels.to(device)
-        outputs = modelDataRaw_1(signals)  # If batch_size>1, than the outputs is a matrix
+        outputs = model(signals)  # If batch_size>1, than the outputs is a matrix
         _, predicted = torch.max(outputs.data, 1)  # The maximum value corresponds to the predicted subject
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
