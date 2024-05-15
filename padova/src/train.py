@@ -7,25 +7,45 @@ import argparse
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 from datetime import datetime
+import utils
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--load_ckpt', type=str, default=None, help='Path to the checkpoint to load')
+    parser.add_argument('--bs', type=int, help="batch size")
+    parser.add_argument('--lr', type=float, help="learning rate")
     return parser.parse_args()
 
+args = parse_args()
+
+
+num_epochs = 500
+# Hyperparameters
+batch_size = args.bs
+learning_rate =  args.lr
+# batch_size = 1000
+# learning_rate = 0.005
+
+hparams = dict(bs=batch_size, lr=learning_rate)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Setup tensorboard
-exp_name = "f32"
+exp_name = 'full'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-logs_path = Path('./logs') / f"{exp_name}__{time_name}"
+hparam_name = utils.hparams_to_folder(hparams)
+folder = f"{exp_name}/{time_name}/{hparam_name}"
+
+logs_path = os.path.join('./logs/', folder)
+# save_path = os.path.join('./results/', folder)
+
 writer = SummaryWriter(log_dir=logs_path)
 
 # Fix the seed
 torch.manual_seed(1310)
 
+# LOAD DATA
 dataset_folder = os.path.join('..', 'dataset', 'dataset1')
 # Read the training set
 XtrainRaw1 = loadX(os.path.join(dataset_folder, 'train', r'Inertial Signals'), "train")
@@ -35,9 +55,6 @@ Ytrain1 = loadY(os.path.join(dataset_folder, "train"), "train")
 XtestRaw1 = loadX(os.path.join(dataset_folder, 'test', r'Inertial Signals'), "test")
 Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 
-# Hyperparameters
-batch_size = 1000
-learning_rate = 0.005
 numClasses = max(Ytrain1)
 print("Number of classes: ", int(numClasses))
 
@@ -58,6 +75,7 @@ trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_si
 # Test loader
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
+# MODEL
 # Instantiate the CNN
 model = CNN(numClasses).to(device)
 # Setting the loss function
@@ -67,9 +85,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # Define the total step to print how many steps are remaining when training
 total_step = len(trainLoader)
 # Number of epochs
-num_epochs = 1000
 
-args = parse_args()
 ckpt_path = args.load_ckpt
 
 best_test = 0.0

@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 import math
+from typing import Literal
 
 
 class DeltaRegime(ABC):
@@ -11,24 +12,27 @@ class DeltaRegime(ABC):
         pass
 
 
-class DeltaRegime_Zero(DeltaRegime):
+class Zero(DeltaRegime):
     name = "zero"
 
     def get(self, epoch):
         return 0
     
 
-class DeltaRegime_Const(DeltaRegime):
+class Const(DeltaRegime):
     name = "const"
 
-    def __init__(self, const: float):
-        self.const = const
+    def __init__(self, min: float, max: float, max_at_epoch: int):
+        self.max = max
+        self.min = max
+        self.max_at_epoch=0
+        self.const = max
 
     def get(self, epoch):
         return self.const
     
 
-class DeltaRegime_Linear(DeltaRegime):
+class Linear(DeltaRegime):
     name = "linear"
 
     def __init__(self, min: float, max: float, max_at_epoch: int):
@@ -41,7 +45,7 @@ class DeltaRegime_Linear(DeltaRegime):
         return self.min + (self.max - self.min) * perc
     
 
-class DeltaRegime_Exponential(DeltaRegime):
+class Exponential(DeltaRegime):
     name = "exp"
 
     def __init__(self, min: float, max: float, max_at_epoch: int):
@@ -55,7 +59,7 @@ class DeltaRegime_Exponential(DeltaRegime):
         return min(self.min + math.exp(self.k * epoch) - 1, self.max)
     
 
-class DeltaRegime_Sqrt(DeltaRegime):
+class Sqrt(DeltaRegime):
     name = "sqrt"
 
     def __init__(self, min: float, max: float, max_at_epoch: int):
@@ -66,4 +70,26 @@ class DeltaRegime_Sqrt(DeltaRegime):
     def get(self, epoch):
         perc = min(math.sqrt(float(epoch) / self.max_at_epoch), 1)
         return self.min + (self.max - self.min) * perc
+
+class Square(DeltaRegime):
+    name = "square"
+
+    def __init__(self, min: float, max: float, max_at_epoch: int):
+        self.min = min
+        self.max = max
+        self.max_at_epoch = max_at_epoch
+
+    def get(self, epoch):
+        perc = min(math.pow(float(epoch) / self.max_at_epoch, 2), 1)
+        return self.min + (self.max - self.min) * perc
+
+
     
+
+all = [Const, Linear, Sqrt, Square]
+all_dict = {dr.name: dr for dr in all}
+all_names = list(all_dict.keys())
+
+
+def by_name(name: Literal["const", "linear", "sqrt", "square"]) -> DeltaRegime:
+    return all_dict[name]

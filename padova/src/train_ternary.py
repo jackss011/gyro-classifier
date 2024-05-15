@@ -5,7 +5,7 @@ import torchaudio
 import argparse
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
-from delta_regimes import *
+import delta_regimes
 import utils
 
 from dataloading import loadX, loadY
@@ -15,25 +15,46 @@ from models_ternary import CNN_ternary
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--load_ckpt', type=str, default=None, help='Path to the checkpoint to load')
+
+    parser.add_argument('--wd', type=float, default=0.0001)
+    parser.add_argument('--dreg', type=str, choices=delta_regimes.all_names)
+    parser.add_argument('--dmin', type=float, default=0)
+    parser.add_argument('--dmax', type=float)
+    parser.add_argument('--dmaxep', type=int, default=100)
     return parser.parse_args()
 
+args = parse_args()
 
 
-
+num_epochs = 500
+layer_inflation = 1 # all model x2, no effect, all model /2 -1.5%
+# delta = 0.1 #0.01 #same as #0.1 #0.2 ~same with more zeros (80%) 
+# SNR = 15
 # Hyperparameters
+momentum = 0.9
 batch_size = 200
 learning_rate = 0.01
-# delta = 0.1 #0.01 #same as #0.1 #0.2 ~same with more zeros (80%) 
-momentum = 0.9
-weight_decay = 0.0001 # 0.001
-layer_inflation = 1 # all model x2, no effect, all model /2 -1.5%
-# SNR = 15
-delta_regime = DeltaRegime_Sqrt(0, 0.3, max_at_epoch=50)
 
-hparams = dict(batch=batch_size, lr=learning_rate, m=momentum, wd=weight_decay, dreg=delta_regime.name, dmin=delta_regime.min, dmax=delta_regime.max, dmaxep=delta_regime.max_at_epoch)
+# weight_decay = 0.0001 # 0.001
+# delta_regime_type = "linear"
+# delta_regime_mim = 0
+# delta_regime_max = 0.3
+# delta_regime_max_epoch = 50
+
+weight_decay = args.wd
+delta_regime_type = args.dreg
+delta_regime_min = args.dmin
+delta_regime_max = args.dmax
+delta_regime_max_epoch = args.dmaxep
+
+# create delta regime class
+DeltaRegimeClass = delta_regimes.by_name(delta_regime_type)
+delta_regime = DeltaRegimeClass(delta_regime_min, delta_regime_max, max_at_epoch=delta_regime_max_epoch)
+
+hparams = dict(bs=batch_size, lr=learning_rate, m=momentum, wd=weight_decay, dreg=delta_regime.name, dmin=delta_regime.min, dmax=delta_regime.max, dmaxep=delta_regime.max_at_epoch)
 
 # training paths
-exp_name = 'ternary1-delta-regime'
+exp_name = 'ternary'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 hparam_name = utils.hparams_to_folder(hparams)
 folder = f"{exp_name}/{time_name}/{hparam_name}"
@@ -100,10 +121,8 @@ optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momen
 total_step = len(trainLoader)
 
 # Number of epochs
-num_epochs = 1000
 best_test = 0.0
 
-args = parse_args()
 if args.load_ckpt is not None:
     model.load_state_dict(torch.load(args.load_ckpt))
 else:
@@ -157,12 +176,12 @@ for epoch in range(0, num_epochs):
 
     writer.add_scalar("TRAIN LOSS", epoch_loss/len(trainLoader), epoch)
 
-    if epoch == 150:
-        for group in optimizer.param_groups:
-            group['lr'] /= 10
-            group['weight_decay'] /= 10
+    # if epoch == 150:
+    #     for group in optimizer.param_groups:
+    #         group['lr'] /= 10
+    #         group['weight_decay'] /= 10
 
-        print(*optimizer.param_groups)
+    #     print(*optimizer.param_groups)
 
     # if epoch == 225:
     #     for group in optimizer.param_groups:
@@ -225,7 +244,7 @@ for epoch in range(0, num_epochs):
 
 
 writer.add_hparams(
-    dict(delta=delta, learning_rate=learning_rate, batch_size=batch_size),
+    hparams,
     {'hparam/best-test-acc': best_test}
 )
 

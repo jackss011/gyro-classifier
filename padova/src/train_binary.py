@@ -6,27 +6,44 @@ import torch.nn as nn
 import argparse
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
+import utils
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--load_ckpt', type=str, default=None, help='Path to the checkpoint to load')
+    parser.add_argument('--bs', type=int, help="batch size")
+    parser.add_argument('--lr', type=float, help="learning rate")
     return parser.parse_args()
+
+args = parse_args()
+
+num_epochs = 500
+# Hyperparameters
+# batch_size = 200
+# learning_rate = 0.01
+batch_size = args.bs
+learning_rate =  args.lr
+
+hparams = dict(bs=batch_size, lr=learning_rate)
 
 
 # choose device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # save path
-exp_name = 'binary1'
+exp_name = 'binary'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-logs_path = os.path.join('./logs/', f"{exp_name}__{time_name}")
-save_path = os.path.join('./results/', f"{exp_name}__{time_name}")
+hparam_name = utils.hparams_to_folder(hparams)
+folder = f"{exp_name}/{time_name}/{hparam_name}"
+
+logs_path = os.path.join('./logs/', folder)
+save_path = os.path.join('./results/', folder)
 os.makedirs(logs_path)
 os.makedirs(save_path)
 
 # Random seed
-# torch.manual_seed(1310)
+torch.manual_seed(1310)
 
 # Setup tensorboard
 writer = SummaryWriter(log_dir=logs_path)
@@ -40,9 +57,6 @@ Ytrain1 = loadY(os.path.join(dataset_folder, "train"), "train")
 XtestRaw1 = loadX(os.path.join(dataset_folder, 'test', r'Inertial Signals'), "test")
 Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 
-# Hyperparameters
-batch_size = 200
-learning_rate = 0.01
 numClasses = max(Ytrain1)
 print("Number of classes: ", int(numClasses))
 
@@ -79,11 +93,8 @@ optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 # Define the total step to print how many steps are remaining when training
 total_step = len(trainLoader)
 
-# Number of epochs
-num_epochs = 1000
 best_test = 0.0
 
-args = parse_args()
 if args.load_ckpt is not None:
     model.load_state_dict(torch.load(args.load_ckpt))
 else:
@@ -122,43 +133,44 @@ for epoch in range(num_epochs):
 
     writer.add_scalar("TRAIN LOSS", running_loss/len(trainLoader), epoch)
 
-    with torch.no_grad():  # Disable the computation of the gradient
-        correct = 0
-        total = 0
-        for signals, labels in trainLoader:  # The trainLoader is already defined for the training phase
-            signals = signals.to(device)
-            labels = labels.to(device)
-            outputs = model(signals)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+    if epoch % 10 == 0:
+        with torch.no_grad():  # Disable the computation of the gradient
+            correct = 0
+            total = 0
+            for signals, labels in trainLoader:  # The trainLoader is already defined for the training phase
+                signals = signals.to(device)
+                labels = labels.to(device)
+                outputs = model(signals)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
-        train_acc = 100 * correct / total
-        print('TRAIN ACC: {} %'.format(train_acc))
-        writer.add_scalar("TRAIN ACC", train_acc, epoch)
+            train_acc = 100 * correct / total
+            print('TRAIN ACC: {} %'.format(train_acc))
+            writer.add_scalar("TRAIN ACC", train_acc, epoch)
 
-    with torch.no_grad():  # Disable the computation of the gradient
-        correct = 0
-        total = 0
-        # Iterate for each signal
-        for signals, labels in testLoader:
-            signals = signals.to(device)
-            labels = labels.to(device)
-            outputs = model(signals)  # If batch_size>1, than the outputs is a matrix
-            _, predicted = torch.max(outputs.data, 1)  # The maximum value corresponds to the predicted subject
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+        with torch.no_grad():  # Disable the computation of the gradient
+            correct = 0
+            total = 0
+            # Iterate for each signal
+            for signals, labels in testLoader:
+                signals = signals.to(device)
+                labels = labels.to(device)
+                outputs = model(signals)  # If batch_size>1, than the outputs is a matrix
+                _, predicted = torch.max(outputs.data, 1)  # The maximum value corresponds to the predicted subject
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
-        test_acc = 100 * correct / total
-        print('TEST ACC: {} %'.format(test_acc))
-        writer.add_scalar("TEST ACC", test_acc, epoch)
+            test_acc = 100 * correct / total
+            print('TEST ACC: {} %'.format(test_acc))
+            writer.add_scalar("TEST ACC", test_acc, epoch)
 
-        if best_test < (100 * correct / total):
-            best_test = 100 * correct / total
-            torch.save(model.state_dict(), ckpt_path)
-            print('Best checkpoint saved!')
-        print('BEST TEST ACC: {} %'.format(best_test))
-        writer.add_scalar("BEST TEST ACC", best_test, epoch)
+            if best_test < (100 * correct / total):
+                best_test = 100 * correct / total
+                torch.save(model.state_dict(), ckpt_path)
+                print('Best checkpoint saved!')
+            print('BEST TEST ACC: {} %'.format(best_test))
+            writer.add_scalar("BEST TEST ACC", best_test, epoch)
 
 writer.close()
 
