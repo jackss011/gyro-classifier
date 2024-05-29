@@ -90,6 +90,8 @@ ckpt_path = args.load_ckpt
 
 best_test = 0.0
 
+print("# params: ", utils.count_parameters(model))
+
 if ckpt_path is None:
     for epoch in range(num_epochs):
         epoch_loss = 0

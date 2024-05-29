@@ -23,3 +23,6 @@ def hparams_to_folder(hparams: dict) -> str:
     x = [f"{k}={v}" for k, v in hparams.items()]
     return "_".join(x)
     
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
