@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument('--dmin', type=float, default=0)
     parser.add_argument('--dmax', type=float)
     parser.add_argument('--dmaxep', type=int, default=100)
+    parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
     return parser.parse_args()
 
 args = parse_args()
@@ -46,12 +47,15 @@ delta_regime_type = args.dreg
 delta_regime_min = args.dmin
 delta_regime_max = args.dmax
 delta_regime_max_epoch = args.dmaxep
+f32_activations = args.af32
 
 # create delta regime class
 DeltaRegimeClass = delta_regimes.by_name(delta_regime_type)
 delta_regime = DeltaRegimeClass(delta_regime_min, delta_regime_max, max_at_epoch=delta_regime_max_epoch)
 
 hparams = dict(bs=batch_size, lr=learning_rate, m=momentum, wd=weight_decay, dreg=delta_regime.name, dmin=delta_regime.min, dmax=delta_regime.max, dmaxep=delta_regime.max_at_epoch)
+if f32_activations:
+    hparams['af32'] = 'Y'
 
 # training paths
 exp_name = 'ternary'
@@ -108,7 +112,7 @@ trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_si
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 # Instantiate the CNN
-model = CNN_ternary(num_classes, delta=delta_regime.get(0), layer_inflation=layer_inflation).to(device)
+model = CNN_ternary(num_classes, delta=delta_regime.get(0), layer_inflation=layer_inflation, f32_activations=f32_activations).to(device)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()

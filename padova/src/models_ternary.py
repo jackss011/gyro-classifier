@@ -4,7 +4,7 @@ import math
 
 
 class CNN_ternary(nn.Module):
-    def __init__(self, numClasses, layer_inflation=1, delta=0.1):
+    def __init__(self, numClasses, layer_inflation=1, delta=0.1, f32_activations=False):
         super(CNN_ternary, self).__init__()
 
         def infl(x: int):
@@ -20,7 +20,7 @@ class CNN_ternary(nn.Module):
         self.net = nn.Sequential(
 
             # First layer: Convolutional layer with kernel=[1,9], stride=[0,4]: form 1*6*128 -> 32*6*64
-            TernarizeConv2d(1, ch_l1, kernel_size=(1, 9), stride=(1, 2), padding=(0, 4), delta=delta, is_first=True),
+            TernarizeConv2d(1, ch_l1, kernel_size=(1, 9), stride=(1, 2), padding=(0, 4), delta=delta, is_first=True, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l1),
             # nn.Dropout2d(p=dropout),
             nn.Hardtanh(inplace=True),
@@ -29,13 +29,13 @@ class CNN_ternary(nn.Module):
             nn.MaxPool2d(kernel_size=[1, 2], stride=(1, 2)),
 
             # Third layer: Convolutional layer with kernel=[1,3], stride=1: form 32*6*32 -> 64*6*32
-            TernarizeConv2d(ch_l1, ch_l2, kernel_size=(1, 3), stride=1, padding=(0, 1), delta=delta),
+            TernarizeConv2d(ch_l1, ch_l2, kernel_size=(1, 3), stride=1, padding=(0, 1), delta=delta, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l2),
             # nn.Dropout2d(p=dropout),
             nn.Hardtanh(inplace=True),
 
             # Fourth Layer
-            TernarizeConv2d(ch_l2, ch_l3, kernel_size=(1, 3), stride=1, padding=(0, 1), delta=delta),
+            TernarizeConv2d(ch_l2, ch_l3, kernel_size=(1, 3), stride=1, padding=(0, 1), delta=delta, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l3),
             # nn.Dropout2d(p=dropout),
             nn.Hardtanh(inplace=True),
@@ -43,13 +43,13 @@ class CNN_ternary(nn.Module):
             # Fifth layer: Pool layer with kernel=[1,2], stride=[1,2]: form 128*6*32 -> 128*6*16
             nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)),
 
-            TernarizeConv2d(ch_l3, ch_l3, kernel_size=(6, 1), stride=1, padding=0, delta=delta),
+            TernarizeConv2d(ch_l3, ch_l3, kernel_size=(6, 1), stride=1, padding=0, delta=delta, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l3),
             # nn.Dropout2d(p=dropout),
             nn.Hardtanh(inplace=True)
         )
 
-        self.fc = TernarizeLinear(ch_fc, numClasses, delta=delta)
+        self.fc = TernarizeLinear(ch_fc, numClasses, delta=delta, f32_activations=f32_activations)
 
         # init_weights(self)
 
@@ -110,9 +110,10 @@ def init_weights(model):
 
 
 class TernarizeLinear(nn.Linear):  # TernarizeLinear
-    def __init__(self, *kargs, delta=0.1, **kwargs):
+    def __init__(self, *kargs, delta=0.1, f32_activations=False, **kwargs):
         super(TernarizeLinear, self).__init__(*kargs, **kwargs)
         self.delta = delta
+        self.f32_activations = f32_activations
 
     def forward(self, input):
         if not hasattr(self.weight, 'org'):
@@ -121,7 +122,9 @@ class TernarizeLinear(nn.Linear):  # TernarizeLinear
         max_w = torch.max(self.weight.org)
         d = (self.delta * max_w).item()
 
-        input.data = Ternarize(input.data, d) # ternary activations
+        if not self.f32_activations:
+            input.data = Ternarize(input.data, d) # ternary activations
+            # print('binarizing [linear]')
         self.weight.data = Ternarize(self.weight.org, d)
 
         out = nn.functional.linear(input, self.weight)
@@ -135,10 +138,11 @@ class TernarizeLinear(nn.Linear):  # TernarizeLinear
 
 
 class TernarizeConv2d(nn.Conv2d):  # TernarizeConv2d
-    def __init__(self, *kargs, delta=0.1, is_first=False, **kwargs):
+    def __init__(self, *kargs, delta=0.1, is_first=False, f32_activations=False, **kwargs):
         super(TernarizeConv2d, self).__init__(*kargs, **kwargs)
         self.delta = delta
         self.is_first = is_first
+        self.f32_activations = f32_activations
 
     def forward(self, input):
         if not hasattr(self.weight, 'org'):
@@ -147,8 +151,9 @@ class TernarizeConv2d(nn.Conv2d):  # TernarizeConv2d
         max_w = torch.max(self.weight.org)
         d = (self.delta * max_w).item()
 
-        if not self.is_first:  # doesn't ternarizza the first layer
+        if not (self.is_first or self.f32_activations):  # doesn't ternarizza the first layer
             input.data = Ternarize(input.data, d) # ternary activations
+            # print('binarizing [conv2d]')
         self.weight.data = Ternarize(self.weight.org, d)
 
         out = nn.functional.conv2d(input, self.weight, None, self.stride, self.padding, self.dilation, self.groups)
