@@ -15,7 +15,7 @@
 @REM python train_ternary.py --dreg "const" --dmax 0.20
 
 
-@REM ============= BATCH 2 ========================== (logs1)
+@REM ============= BATCH 2 ========================== (logs2)
 @REM ================================================
 
 @REM python train_ternary.py --dreg "const"  --dmax 0.3
@@ -69,7 +69,7 @@
 @REM python train_ternary.py --dreg "linear" --dmax 0.20  --dmin 0.0000
 
 
-@REM ================= BINARY ACTIVATIONS ================= (logs4 ~not yet impl)
+@REM ================= F32 ACTIVATIONS ================= (logs4 ~not yet impl)
 @REM ======================================================
 
 python train_ternary.py --dreg "linear" --dmax 0.05  --af32
