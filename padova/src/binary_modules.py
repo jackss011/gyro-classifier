@@ -7,12 +7,14 @@ def Binarize(tensor):
 
 class BinarizeConv2d(nn.Conv2d):
 
-    def __init__(self, *kargs, **kwargs):
+    def __init__(self, *kargs, af32=False, **kwargs):
+        self.af32 = af32
         super(BinarizeConv2d, self).__init__(*kargs, **kwargs)
 
     def forward(self, input):
-        if input.size(1) != 1:
+        if input.size(1) != 1 and not self.af32:
             input.data = Binarize(input.data)
+
         if not hasattr(self.weight, 'org'):
             self.weight.org = self.weight.data.clone()
         if input.size(1) != 1:
@@ -29,12 +31,14 @@ class BinarizeConv2d(nn.Conv2d):
 
 class BinarizeLinear(nn.Linear):
 
-    def __init__(self, *kargs, **kwargs):
+    def __init__(self, *kargs, af32=False, **kwargs):
+        self.af32 = af32
         super(BinarizeLinear, self).__init__(*kargs, **kwargs)
 
     def forward(self, input):
         # if input.size(1) != 1:
-        input.data = Binarize(input.data)
+        if not self.af32:
+            input.data = Binarize(input.data)
         if not hasattr(self.weight, 'org'):
             self.weight.org = self.weight.data.clone()
         self.weight.data = Binarize(self.weight.org)

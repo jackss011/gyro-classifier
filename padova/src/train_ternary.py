@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument('--dmax', type=float)
     parser.add_argument('--dmaxep', type=int, default=100)
     parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--lr', type=float, default=0.01)
     return parser.parse_args()
 
 args = parse_args()
@@ -34,7 +35,7 @@ layer_inflation = 1 # all model x2, no effect, all model /2 -1.5%
 # Hyperparameters
 momentum = 0.9
 batch_size = 200
-learning_rate = 0.01
+# learning_rate = 0.01
 
 # weight_decay = 0.0001 # 0.001
 # delta_regime_type = "linear"
@@ -42,6 +43,7 @@ learning_rate = 0.01
 # delta_regime_max = 0.3
 # delta_regime_max_epoch = 50
 
+learning_rate = args.lr
 weight_decay = args.wd
 delta_regime_type = args.dreg
 delta_regime_min = args.dmin

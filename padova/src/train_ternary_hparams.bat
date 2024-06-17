@@ -69,21 +69,43 @@
 @REM python train_ternary.py --dreg "linear" --dmax 0.20  --dmin 0.0000
 
 
+@REM @REM ================= F32 ACTIVATIONS ================= (logs3 ~not yet impl)
+@REM @REM ======================================================
+
+@REM python train_ternary.py --dreg "linear" --dmax 0.05  --af32
+@REM python train_ternary.py --dreg "linear" --dmax 0.10  --af32
+@REM python train_ternary.py --dreg "linear" --dmax 0.20  --af32
+
+@REM python train_ternary.py --dreg "square" --dmax 0.05  --af32
+@REM python train_ternary.py --dreg "square" --dmax 0.10  --af32
+@REM python train_ternary.py --dreg "square" --dmax 0.20  --af32
+
+@REM python train_ternary.py --dreg "sqrt" --dmax 0.05  --af32
+@REM python train_ternary.py --dreg "sqrt" --dmax 0.10  --af32
+@REM python train_ternary.py --dreg "sqrt" --dmax 0.20  --af32
+
+@REM python train_ternary.py --dreg "const" --dmax 0.05  --af32
+@REM python train_ternary.py --dreg "const" --dmax 0.10  --af32
+@REM python train_ternary.py --dreg "const" --dmax 0.20  --af32
+
+
+
 @REM ================= F32 ACTIVATIONS ================= (logs4 ~not yet impl)
 @REM ======================================================
 
-python train_ternary.py --dreg "linear" --dmax 0.05  --af32
-python train_ternary.py --dreg "linear" --dmax 0.10  --af32
-python train_ternary.py --dreg "linear" --dmax 0.20  --af32
+@REM python train_ternary.py --dreg "linear" --dmax 0.05  --af32 --lr 0.001
+@REM python train_ternary.py --dreg "linear" --dmax 0.10  --af32 
+@REM python train_ternary.py --dreg "linear" --dmax 0.20  --af32
 
-python train_ternary.py --dreg "square" --dmax 0.05  --af32
-python train_ternary.py --dreg "square" --dmax 0.10  --af32
-python train_ternary.py --dreg "square" --dmax 0.20  --af32
+@REM python train_ternary.py --dreg "square" --dmax 0.05  --af32 --lr 0.001
+@REM python train_ternary.py --dreg "square" --dmax 0.10  --af32 --lr 0.001
+@REM python train_ternary.py --dreg "square" --dmax 0.20  --af32 --lr 0.001
 
-python train_ternary.py --dreg "sqrt" --dmax 0.05  --af32
-python train_ternary.py --dreg "sqrt" --dmax 0.10  --af32
-python train_ternary.py --dreg "sqrt" --dmax 0.20  --af32
+@REM @REM python train_ternary.py --dreg "sqrt" --dmax 0.05  --af32 --lr 0.001
+@REM python train_ternary.py --dreg "sqrt" --dmax 0.10  --af32 --lr 0.001
+@REM python train_ternary.py --dreg "sqrt" --dmax 0.20  --af32 --lr 0.001
 
-python train_ternary.py --dreg "const" --dmax 0.05  --af32
-python train_ternary.py --dreg "const" --dmax 0.10  --af32
-python train_ternary.py --dreg "const" --dmax 0.20  --af32
+@REM @REM python train_ternary.py --dreg "const" --dmax 0.05  --af32 --lr 0.001
+@REM python train_ternary.py --dreg "const" --dmax 0.10  --af32 --lr 0.001
+@REM python train_ternary.py --dreg "const" --dmax 0.20  --af32 --lr 0.001
+

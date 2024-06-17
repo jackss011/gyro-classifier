@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument('--load_ckpt', type=str, default=None, help='Path to the checkpoint to load')
     parser.add_argument('--bs', type=int, help="batch size")
     parser.add_argument('--lr', type=float, help="learning rate")
+    parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
     return parser.parse_args()
 
 args = parse_args()
@@ -24,8 +25,11 @@ num_epochs = 500
 # learning_rate = 0.01
 batch_size = args.bs
 learning_rate =  args.lr
+af32 = args.af32
 
 hparams = dict(bs=batch_size, lr=learning_rate)
+if af32:
+    hparams['af32'] = 'Y'
 
 
 # choose device
@@ -58,7 +62,7 @@ XtestRaw1 = loadX(os.path.join(dataset_folder, 'test', r'Inertial Signals'), "te
 Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 
 numClasses = max(Ytrain1)
-print("Number of classes: ", int(numClasses))
+print("Number of classes: ", int(numClasses), af32)
 
 # Create the tensor for training
 trainData = list()
@@ -81,7 +85,7 @@ trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_si
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 # Instantiate the CNN
-model = CNN_binary(numClasses).to(device)
+model = CNN_binary(numClasses, af32=af32).to(device)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
