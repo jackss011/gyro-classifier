@@ -36,7 +36,7 @@ if af32:
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # save path
-exp_name = 'binary'
+exp_name = 'binary-sched'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 hparam_name = utils.hparams_to_folder(hparams)
 folder = f"{exp_name}/{time_name}/{hparam_name}"
@@ -92,7 +92,8 @@ cost = nn.CrossEntropyLoss()
 
 # Setting the optimizer with the model parameters and learning rate
 # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+# lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=120, gamma=0.1)
 
 # Define the total step to print how many steps are remaining when training
 total_step = len(trainLoader)
@@ -137,6 +138,9 @@ for epoch in range(num_epochs):
 
     writer.add_scalar("TRAIN LOSS", running_loss/len(trainLoader), epoch)
 
+    # lr_scheduler.step()
+    writer.add_scalar("LR", optimizer.param_groups[0]['lr'], epoch)
+
     if epoch % 10 == 0:
         with torch.no_grad():  # Disable the computation of the gradient
             correct = 0
@@ -175,6 +179,14 @@ for epoch in range(num_epochs):
                 print('Best checkpoint saved!')
             print('BEST TEST ACC: {} %'.format(best_test))
             writer.add_scalar("BEST TEST ACC", best_test, epoch)
+
+    if epoch == 150:
+        print('scaling LR by factor of 10')
+        for group in optimizer.param_groups:
+            group['lr'] /= 10
+            group['weight_decay'] /= 10
+
+
 
 writer.close()
 
