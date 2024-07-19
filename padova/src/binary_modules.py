@@ -13,7 +13,7 @@ class BinarizeConv2d(nn.Conv2d):
 
     def forward(self, input):
         if input.size(1) != 1 and not self.af32:
-            print("bin")
+            # print("bin")
             input.data = Binarize(input.data)
 
         if not hasattr(self.weight, 'org'):
