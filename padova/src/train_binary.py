@@ -1,6 +1,6 @@
 import torch
 from dataloading import loadX, loadY
-from models_binary import CNN_binary
+from models_binary import CNN_binary, CNN_binary_relu
 import os
 import torch.nn as nn
 import argparse
@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument('--bs', type=int, help="batch size")
     parser.add_argument('--lr', type=float, help="learning rate")
     parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--model', type=str, default=None)
     return parser.parse_args()
 
 args = parse_args()
@@ -26,11 +27,22 @@ num_epochs = 500
 batch_size = args.bs
 learning_rate =  args.lr
 af32 = args.af32
+model_name = args.model
 
 hparams = dict(bs=batch_size, lr=learning_rate)
 if af32:
     hparams['af32'] = 'Y'
+if model_name:
+    hparams['model'] = model_name
 
+# choose binary model
+ModelSelected = None
+if not model_name:
+    ModelSelected = CNN_binary
+elif model_name == 'relu':
+    ModelSelected == CNN_binary_relu
+else:
+    raise ValueError("No such --model as:", model_name)
 
 # choose device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -62,7 +74,10 @@ XtestRaw1 = loadX(os.path.join(dataset_folder, 'test', r'Inertial Signals'), "te
 Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 
 numClasses = max(Ytrain1)
-print("Number of classes: ", int(numClasses), af32)
+
+print("Model: ", ModelSelected)
+print("Activation f32: ", af32)
+print("Number of classes: ", int(numClasses))
 
 # Create the tensor for training
 trainData = list()
@@ -85,7 +100,8 @@ trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_si
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 # Instantiate the CNN
-model = CNN_binary(numClasses, af32=af32).to(device)
+# model = CNN_binary(numClasses, af32=af32).to(device)
+model = ModelSelected(numClasses, af32=af32).to(device)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
@@ -107,6 +123,8 @@ else:
 
 # main loop
 for epoch in range(num_epochs):
+    # +++++ TRAIN ++++++
+    model.train()
     running_loss = 0.0
     for i, (signals, labels) in enumerate(trainLoader):
         signals = signals.to(device)
@@ -133,16 +151,26 @@ for epoch in range(num_epochs):
             if hasattr(p, 'org'):
                 p.org.copy_(p.data.clamp_(-1, 1))
 
+        # PRINT
         if (i + 1) % 21 == 0:
             print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{total_step}], Loss: {loss_item:.4f}')
 
+    # TENSORBOARD
     writer.add_scalar("TRAIN LOSS", running_loss/len(trainLoader), epoch)
-
-    # lr_scheduler.step()
     writer.add_scalar("LR", optimizer.param_groups[0]['lr'], epoch)
 
+    # SCALE LR
+    if epoch in [150, 300]:
+        print('scaling LR by factor of 10')
+        for group in optimizer.param_groups:
+            group['lr'] /= 10
+            group['weight_decay'] /= 10
+
+    # +++++ EVAL ++++++ (every 10)
     if epoch % 10 == 0:
+        # => train accuracy
         with torch.no_grad():  # Disable the computation of the gradient
+            model.eval()
             correct = 0
             total = 0
             for signals, labels in trainLoader:  # The trainLoader is already defined for the training phase
@@ -157,7 +185,9 @@ for epoch in range(num_epochs):
             print('TRAIN ACC: {} %'.format(train_acc))
             writer.add_scalar("TRAIN ACC", train_acc, epoch)
 
+        # => test accuracy
         with torch.no_grad():  # Disable the computation of the gradient
+            model.eval()
             correct = 0
             total = 0
             # Iterate for each signal
@@ -180,15 +210,4 @@ for epoch in range(num_epochs):
             print('BEST TEST ACC: {} %'.format(best_test))
             writer.add_scalar("BEST TEST ACC", best_test, epoch)
 
-    if epoch in [150, 300]:
-        print('scaling LR by factor of 10')
-        for group in optimizer.param_groups:
-            group['lr'] /= 10
-            group['weight_decay'] /= 10
-
-
-
 writer.close()
-
-# model.net(signals).reshape(batch_size,-1).sign()
-
