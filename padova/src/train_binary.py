@@ -26,6 +26,8 @@ num_epochs = 500
 # learning_rate = 0.01
 batch_size = args.bs
 learning_rate =  args.lr
+lr_steps = [150, 300]
+lr_gamma = 0.1
 af32 = args.af32
 model_name = args.model
 
@@ -78,6 +80,8 @@ numClasses = max(Ytrain1)
 print("Model: ", ModelSelected)
 print("Activation f32: ", af32)
 print("Number of classes: ", int(numClasses))
+print("LR steps: ", lr_steps)
+print("LR gamma: ", lr_gamma)
 
 # Create the tensor for training
 trainData = list()
@@ -160,11 +164,11 @@ for epoch in range(num_epochs):
     writer.add_scalar("LR", optimizer.param_groups[0]['lr'], epoch)
 
     # SCALE LR
-    if epoch in [150, 300]:
+    if epoch in lr_steps:
         print('scaling LR by factor of 10')
         for group in optimizer.param_groups:
-            group['lr'] /= 10
-            group['weight_decay'] /= 10
+            group['lr'] *= lr_gamma
+            group['weight_decay'] *= lr_gamma # not used
 
     # +++++ EVAL ++++++ (every 10)
     if epoch % 10 == 0:
