@@ -180,11 +180,11 @@ for epoch in range(num_epochs):
             print('BEST TEST ACC: {} %'.format(best_test))
             writer.add_scalar("BEST TEST ACC", best_test, epoch)
 
-    # if epoch == 150:
-    #     print('scaling LR by factor of 10')
-    #     for group in optimizer.param_groups:
-    #         group['lr'] /= 10
-    #         group['weight_decay'] /= 10
+    if epoch in [150, 300]:
+        print('scaling LR by factor of 10')
+        for group in optimizer.param_groups:
+            group['lr'] /= 10
+            group['weight_decay'] /= 10
 
 
 
