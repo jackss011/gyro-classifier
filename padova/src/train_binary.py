@@ -24,9 +24,12 @@ num_epochs = 500
 # Hyperparameters
 # batch_size = 200
 # learning_rate = 0.01
+exp_name = 'binary'
+
 batch_size = args.bs
 learning_rate =  args.lr
-lr_steps = [150, 300]
+# lr_steps = [150, 300]
+lr_steps = []
 lr_gamma = 0.1
 af32 = args.af32
 model_name = args.model
@@ -50,7 +53,7 @@ else:
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # save path
-exp_name = 'binary-sched'
+# exp_name = 'binary-sched'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 hparam_name = utils.hparams_to_folder(hparams)
 folder = f"{exp_name}/{time_name}/{hparam_name}"
