@@ -42,7 +42,7 @@ ModelSelected = None
 if not model_name:
     ModelSelected = CNN_binary
 elif model_name == 'relu':
-    ModelSelected == CNN_binary_relu
+    ModelSelected = CNN_binary_relu
 else:
     raise ValueError("No such --model as:", model_name)
 
