@@ -46,7 +46,7 @@ class CNN_binary(nn.Module):
 
 class CNN_binary_relu(nn.Module):
     def __init__(self, numClasses, layer_inflation=1, af32=False):
-        super(CNN_binary, self).__init__()
+        super(CNN_binary_relu, self).__init__()
         self.af32 = af32
         
         self.net = nn.Sequential(
