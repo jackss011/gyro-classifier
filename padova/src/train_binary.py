@@ -90,6 +90,9 @@ print("Number of classes: ", int(numClasses))
 print("LR steps: ", lr_steps)
 print("LR gamma: ", lr_gamma)
 
+if dropout:
+    print("Dropout: ", dropout)
+
 # Create the tensor for training
 trainData = list()
 for i in range(len(XtrainRaw1)):
