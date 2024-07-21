@@ -18,25 +18,29 @@ class CNN_binary(nn.Module):
             nn.MaxPool2d(kernel_size=[1, 2], stride=(1, 2)),
 
             # Third layer: Convolutional layer with kernel=[1,3], stride=1: form 32*6*32 -> 64*6*32
+            nn.Dropout2d(p=self.dropout),
+
             BinarizeConv2d(32, 64, kernel_size=(1, 3), stride=1, padding=(0, 1), af32=self.af32),
             nn.BatchNorm2d(64),
             nn.Hardtanh(inplace=True),
 
-            # nn.Dropout(p=dropout),
-
             # Fourth Layer
+            nn.Dropout2d(p=self.dropout),
+
             BinarizeConv2d(64, 128, kernel_size=(1, 3), stride=1, padding=(0, 1), af32=self.af32),
             nn.BatchNorm2d(128),
             nn.Hardtanh(inplace=True),
 
             # Fifth layer: Pool layer with kernel=[1,2], stride=[1,2]: form 128*6*32 -> 128*6*16
             nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)),
-            nn.Dropout(p=self.dropout),
+
+            nn.Dropout2d(p=self.dropout),
 
             BinarizeConv2d(128, 128, kernel_size=(6, 1), stride=1, padding=0, af32=self.af32),
             nn.BatchNorm2d(128),
             nn.Hardtanh(inplace=True),
-            nn.Dropout(p=self.dropout),
+
+            nn.Dropout2d(p=self.dropout),
         )
 
         self.fc = BinarizeLinear(2048, numClasses, af32=self.af32)
@@ -65,11 +69,15 @@ class CNN_binary_relu(nn.Module):
             # Second layer: Pool layer with kernel=[1,2], stride=[1,2]: form 32*6*64 -> 32*6*32
             nn.MaxPool2d(kernel_size=[1, 2], stride=(1, 2)),
 
+            nn.Dropout2d(p=self.dropout),
+
             # Third layer: Convolutional layer with kernel=[1,3], stride=1: form 32*6*32 -> 64*6*32
             BinarizeConv2d(32, 64, kernel_size=(1, 3), stride=1, padding=(0, 1), af32=self.af32),
             nn.BatchNorm2d(64),
             # nn.Hardtanh(inplace=True),
             nn.ReLU(),
+
+            nn.Dropout2d(p=self.dropout),
 
             # Fourth Layer
             BinarizeConv2d(64, 128, kernel_size=(1, 3), stride=1, padding=(0, 1), af32=self.af32),
@@ -79,14 +87,14 @@ class CNN_binary_relu(nn.Module):
 
             # Fifth layer: Pool layer with kernel=[1,2], stride=[1,2]: form 128*6*32 -> 128*6*16
             nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)),
-            nn.Dropout(p=self.dropout),
+
+            nn.Dropout2d(p=self.dropout),
 
             BinarizeConv2d(128, 128, kernel_size=(6, 1), stride=1, padding=0, af32=self.af32),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            
-            nn.Dropout(p=self.dropout),
-            # nn.Hardtanh(inplace=True)
+
+            nn.Dropout2d(p=self.dropout),
         )
 
         self.fc = BinarizeLinear(2048, numClasses, af32=self.af32)
