@@ -3,9 +3,10 @@ from binary_modules import BinarizeLinear, BinarizeConv2d
 
 
 class CNN_binary(nn.Module):
-    def __init__(self, numClasses, layer_inflation=1, af32=False):
+    def __init__(self, numClasses, layer_inflation=1, af32=False, dropout=0.0):
         super(CNN_binary, self).__init__()
         self.af32 = af32
+        self.dropout = dropout
         
         self.net = nn.Sequential(
             # First layer: Convolutional layer with kernel=[1,9], stride=[0,4]: form 1*6*128 -> 32*6*64
@@ -21,6 +22,8 @@ class CNN_binary(nn.Module):
             nn.BatchNorm2d(64),
             nn.Hardtanh(inplace=True),
 
+            # nn.Dropout(p=dropout),
+
             # Fourth Layer
             BinarizeConv2d(64, 128, kernel_size=(1, 3), stride=1, padding=(0, 1), af32=self.af32),
             nn.BatchNorm2d(128),
@@ -28,10 +31,12 @@ class CNN_binary(nn.Module):
 
             # Fifth layer: Pool layer with kernel=[1,2], stride=[1,2]: form 128*6*32 -> 128*6*16
             nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)),
+            nn.Dropout(p=self.dropout),
 
             BinarizeConv2d(128, 128, kernel_size=(6, 1), stride=1, padding=0, af32=self.af32),
             nn.BatchNorm2d(128),
-            nn.Hardtanh(inplace=True)
+            nn.Hardtanh(inplace=True),
+            nn.Dropout(p=self.dropout),
         )
 
         self.fc = BinarizeLinear(2048, numClasses, af32=self.af32)
@@ -45,9 +50,10 @@ class CNN_binary(nn.Module):
 
 
 class CNN_binary_relu(nn.Module):
-    def __init__(self, numClasses, layer_inflation=1, af32=False):
+    def __init__(self, numClasses, layer_inflation=1, af32=False, dropout=0):
         super(CNN_binary_relu, self).__init__()
         self.af32 = af32
+        self.dropout = dropout
         
         self.net = nn.Sequential(
             # First layer: Convolutional layer with kernel=[1,9], stride=[0,4]: form 1*6*128 -> 32*6*64
@@ -73,10 +79,13 @@ class CNN_binary_relu(nn.Module):
 
             # Fifth layer: Pool layer with kernel=[1,2], stride=[1,2]: form 128*6*32 -> 128*6*16
             nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)),
+            nn.Dropout(p=self.dropout),
 
             BinarizeConv2d(128, 128, kernel_size=(6, 1), stride=1, padding=0, af32=self.af32),
             nn.BatchNorm2d(128),
             nn.ReLU(),
+            
+            nn.Dropout(p=self.dropout),
             # nn.Hardtanh(inplace=True)
         )
 

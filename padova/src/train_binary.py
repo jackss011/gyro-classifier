@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('--lr', type=float, help="learning rate")
     parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument('--model', type=str, default=None)
+    parser.add_argument('--drop', type=float, default=0)
     return parser.parse_args()
 
 args = parse_args()
@@ -32,6 +33,7 @@ learning_rate =  args.lr
 lr_steps = []
 lr_gamma = 0.1
 af32 = args.af32
+dropout = args.drop
 model_name = args.model
 
 hparams = dict(bs=batch_size, lr=learning_rate)
@@ -39,6 +41,8 @@ if af32:
     hparams['af32'] = 'Y'
 if model_name:
     hparams['model'] = model_name
+if dropout > 0:
+    hparams['drop'] = dropout
 
 # choose binary model
 ModelSelected = None
@@ -104,7 +108,7 @@ testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size
 
 # Instantiate the CNN
 # model = CNN_binary(numClasses, af32=af32).to(device)
-model = ModelSelected(numClasses, af32=af32).to(device)
+model = ModelSelected(numClasses, af32=af32, dropout=dropout).to(device)
 
 if af32:
     init_weights(model)
