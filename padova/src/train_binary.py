@@ -1,6 +1,6 @@
 import torch
 from dataloading import loadX, loadY
-from models_binary import CNN_binary, CNN_binary_relu
+from models_binary import CNN_binary, CNN_binary_relu, init_weights
 import os
 import torch.nn as nn
 import argparse
@@ -24,7 +24,7 @@ num_epochs = 500
 # Hyperparameters
 # batch_size = 200
 # learning_rate = 0.01
-exp_name = 'binary'
+exp_name = 'binary-init'
 
 batch_size = args.bs
 learning_rate =  args.lr
@@ -99,16 +99,15 @@ for i in range(len(XtestRaw1)):
     testData.append((torch.tensor(sample, dtype=torch.float32), Ytest1[i] - 1))
 
 
-
-# Train data loader
 trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_size, shuffle=True)
-
-# Test data loader
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 # Instantiate the CNN
 # model = CNN_binary(numClasses, af32=af32).to(device)
 model = ModelSelected(numClasses, af32=af32).to(device)
+
+if af32:
+    init_weights(model)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
@@ -127,6 +126,7 @@ if args.load_ckpt is not None:
     model.load_state_dict(torch.load(args.load_ckpt))
 else:
     ckpt_path = save_path + '/model_best.ckpt'
+
 
 # main loop
 for epoch in range(num_epochs):
