@@ -9,7 +9,7 @@ import delta_regimes
 import utils
 
 from dataloading import loadX, loadY
-from models_ternary import CNN_ternary
+from models_ternary import CNN_ternary, init_weights
 
 
 def parse_args():
@@ -62,7 +62,7 @@ if f32_activations:
     hparams['af32'] = 'Y'
 
 # training paths
-exp_name = 'ternary'
+exp_name = 'ternary-init'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 hparam_name = utils.hparams_to_folder(hparams)
 folder = f"{exp_name}/{time_name}/{hparam_name}"
@@ -121,6 +121,9 @@ testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size
 
 # Instantiate the CNN
 model = CNN_ternary(num_classes, delta=delta_regime.get(0), layer_inflation=layer_inflation, f32_activations=f32_activations).to(device)
+
+if f32_activations:
+    init_weights(model)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()

@@ -91,21 +91,36 @@ class CNN_ternary(nn.Module):
 
 
 
+# def init_weights3(model):  
+#     for m in model.modules(): 
+
+#         if isinstance(m, TernarizeConv2d):  
+#             n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels  
+#             m.weight.data.normal_(0, math.sqrt(2. / n))
+
+#         elif isinstance(m, TernarizeLinear):
+#             torch.nn.init.xavier_uniform_(m.weight)
+#             if m.bias is not None:
+#                 m.bias.data.fill_(0.01)
+
+#         elif isinstance(m, nn.BatchNorm2d):
+#             m.weight.data.fill_(1)
+#             m.bias.data.zero_()
+
 def init_weights(model):  
-    for m in model.modules(): 
-
-        if isinstance(m, TernarizeConv2d):  
-            n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels  
-            m.weight.data.normal_(0, math.sqrt(2. / n))
-
-        elif isinstance(m, TernarizeLinear):
-            torch.nn.init.xavier_uniform_(m.weight)
+    print("Initializing weights...")
+    for m in model.modules():
+        if isinstance(m, TernarizeConv2d):
+            # print("conv2", m)
+            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
             if m.bias is not None:
-                m.bias.data.fill_(0.01)
+                nn.init.constant_(m.bias, 0.001)
+        elif isinstance(m, TernarizeLinear):
+            # print("lin", m)
+            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0.001)
 
-        elif isinstance(m, nn.BatchNorm2d):
-            m.weight.data.fill_(1)
-            m.bias.data.zero_()
 
 
 
