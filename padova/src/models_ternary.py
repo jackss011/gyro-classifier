@@ -4,26 +4,21 @@ import math
 
 
 class CNN_ternary(nn.Module):
-    def __init__(self, numClasses, layer_inflation=1, delta=0.1, f32_activations=False):
+    def __init__(self, numClasses, layer_inflation=1, delta=0.1, f32_activations=False, dropout=0):
         super(CNN_ternary, self).__init__()
-
-        def infl(x: int):
-            return round(x*layer_inflation)
         
         ch_l1 = 32
         ch_l2 = 64
         ch_l3 = 128
         ch_fc = 2048
-
-        # dropout = 0.1
     
         self.net = nn.Sequential(
 
             # First layer: Convolutional layer with kernel=[1,9], stride=[0,4]: form 1*6*128 -> 32*6*64
             TernarizeConv2d(1, ch_l1, kernel_size=(1, 9), stride=(1, 2), padding=(0, 4), delta=delta, is_first=True, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l1),
-            # nn.Dropout2d(p=dropout),
             nn.Hardtanh(inplace=True),
+            nn.Dropout2d(p=dropout),
 
             # Second layer: Pool layer with kernel=[1,2], stride=[1,2]: form 32*6*64 -> 32*6*32
             nn.MaxPool2d(kernel_size=[1, 2], stride=(1, 2)),
@@ -31,22 +26,22 @@ class CNN_ternary(nn.Module):
             # Third layer: Convolutional layer with kernel=[1,3], stride=1: form 32*6*32 -> 64*6*32
             TernarizeConv2d(ch_l1, ch_l2, kernel_size=(1, 3), stride=1, padding=(0, 1), delta=delta, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l2),
-            # nn.Dropout2d(p=dropout),
             nn.Hardtanh(inplace=True),
+            nn.Dropout2d(p=dropout),
 
             # Fourth Layer
             TernarizeConv2d(ch_l2, ch_l3, kernel_size=(1, 3), stride=1, padding=(0, 1), delta=delta, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l3),
-            # nn.Dropout2d(p=dropout),
             nn.Hardtanh(inplace=True),
 
             # Fifth layer: Pool layer with kernel=[1,2], stride=[1,2]: form 128*6*32 -> 128*6*16
             nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)),
+            nn.Dropout2d(p=dropout),
 
             TernarizeConv2d(ch_l3, ch_l3, kernel_size=(6, 1), stride=1, padding=0, delta=delta, f32_activations=f32_activations),
             nn.BatchNorm2d(ch_l3),
-            # nn.Dropout2d(p=dropout),
-            nn.Hardtanh(inplace=True)
+            nn.Hardtanh(inplace=True),
+            nn.Dropout2d(p=dropout),
         )
 
         self.fc = TernarizeLinear(ch_fc, numClasses, delta=delta, f32_activations=f32_activations)
