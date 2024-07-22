@@ -1,7 +1,7 @@
 import torch
 import os
 import torch.nn as nn
-import torchaudio
+# import torchaudio
 import argparse
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
@@ -16,13 +16,15 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--load_ckpt', type=str, default=None, help='Path to the checkpoint to load')
 
+    parser.add_argument('--bs', type=float, default=128)
+    parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--wd', type=float, default=0.0001)
     parser.add_argument('--dreg', type=str, choices=delta_regimes.all_names)
     parser.add_argument('--dmin', type=float, default=0)
     parser.add_argument('--dmax', type=float)
-    parser.add_argument('--dmaxep', type=int, default=100)
+    parser.add_argument('--dmaxep', type=int, default=200)
     parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
-    parser.add_argument('--lr', type=float, default=0.01)
+
     return parser.parse_args()
 
 args = parse_args()
@@ -34,7 +36,6 @@ layer_inflation = 1 # all model x2, no effect, all model /2 -1.5%
 # SNR = 15
 # Hyperparameters
 momentum = 0.9
-batch_size = 200
 # learning_rate = 0.01
 
 # weight_decay = 0.0001 # 0.001
@@ -43,6 +44,7 @@ batch_size = 200
 # delta_regime_max = 0.3
 # delta_regime_max_epoch = 50
 
+batch_size = args.bs
 learning_rate = args.lr
 weight_decay = args.wd
 delta_regime_type = args.dreg
@@ -72,7 +74,7 @@ os.makedirs(logs_path)
 os.makedirs(save_path)
 
 # Random seed
-# torch.manual_seed(1310)
+torch.manual_seed(1310)
 
 # choose device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -92,7 +94,11 @@ Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 
 # determine num classes
 num_classes = int(max(Ytrain1))
+
+#debug print
 print("Number of classes: ", num_classes)
+print("Using a32: ", f32_activations)
+print("h-params: ", hparams)
 
 
 # Create the tensor for training
@@ -143,6 +149,7 @@ for epoch in range(0, num_epochs):
     model.set_delta(delta)
     writer.add_scalar("DELTA", delta, epoch)
 
+    model.train()
     for i, (signals, labels) in enumerate(trainLoader):
         signals: torch.Tensor = signals.to(device)
         labels: torch.Tensor = labels.to(device)
@@ -197,6 +204,7 @@ for epoch in range(0, num_epochs):
 
     # once every n epochs
     if epoch % 10 == 0:
+        model.eval()
         # track entropy of model weights
         weights_entropy = model.get_weights_entropy()
         writer.add_scalar("WEIGHTS ENTROPY", weights_entropy, epoch)
@@ -249,9 +257,9 @@ for epoch in range(0, num_epochs):
         writer.add_scalar("weights/minus-one", m1_perc, epoch)
 
 
-writer.add_hparams(
-    hparams,
-    {'hparam/best-test-acc': best_test}
-)
+# writer.add_hparams(
+#     hparams,
+#     {'hparam/best-test-acc': best_test}
+# )
 
 writer.close()
