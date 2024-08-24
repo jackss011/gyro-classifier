@@ -25,7 +25,7 @@ num_epochs = 500
 # Hyperparameters
 # batch_size = 200
 # learning_rate = 0.01
-exp_name = 'binary-init'
+exp_name = 'binary'
 
 batch_size = args.bs
 learning_rate =  args.lr

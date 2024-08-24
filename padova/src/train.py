@@ -38,7 +38,7 @@ hparam_name = utils.hparams_to_folder(hparams)
 folder = f"{exp_name}/{time_name}/{hparam_name}"
 
 logs_path = os.path.join('./logs/', folder)
-# save_path = os.path.join('./results/', folder)
+save_path = os.path.join('./results/', folder)
 
 writer = SummaryWriter(log_dir=logs_path)
 
@@ -86,7 +86,11 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 total_step = len(trainLoader)
 # Number of epochs
 
-ckpt_path = args.load_ckpt
+if args.load_ckpt is not None:
+    model.load_state_dict(torch.load(args.load_ckpt))
+else:
+    ckpt_path = save_path + '/model_best.ckpt'
+
 
 best_test = 0.0
 
@@ -95,6 +99,7 @@ print("# params: ", utils.count_parameters(model))
 if ckpt_path is None:
     for epoch in range(num_epochs):
         epoch_loss = 0
+        model.train()
         # The train loader take one batch after the other
         for i, (signals, labels) in enumerate(trainLoader):
             signals = signals.to(device)
@@ -121,6 +126,8 @@ if ckpt_path is None:
         if epoch % 10 == 0:
             # validation on training
             with torch.no_grad():  # Disable the computation of the gradient
+                model.eval()
+                
                 correct = 0
                 total = 0
                 for signals, labels in trainLoader:  # The trainLoader is already defined for the training phase
@@ -137,6 +144,8 @@ if ckpt_path is None:
 
             # validation on test
             with torch.no_grad():  # Disable the computation of the gradient
+                model.eval()
+
                 correct = 0
                 total = 0
                 # Iterate for each signal
@@ -154,7 +163,7 @@ if ckpt_path is None:
 
                 if best_test < (100 * correct / total):
                     best_test = 100 * correct / total
-                    # torch.save(model.state_dict(), ckpt_path)
+                    torch.save(model.state_dict(), ckpt_path)
                     print('Better model found!')
                 print('BEST TEST ACC: {} %'.format(best_test))
                 writer.add_scalar("BEST TEST ACC", best_test, epoch)
