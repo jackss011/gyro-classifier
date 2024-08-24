@@ -39,6 +39,8 @@ folder = f"{exp_name}/{time_name}/{hparam_name}"
 
 logs_path = os.path.join('./logs/', folder)
 save_path = os.path.join('./results/', folder)
+os.makedirs(logs_path)
+os.makedirs(save_path)
 
 writer = SummaryWriter(log_dir=logs_path)
 
@@ -166,7 +168,7 @@ for epoch in range(num_epochs):
                 print('Better model found!')
             print('BEST TEST ACC: {} %'.format(best_test))
             writer.add_scalar("BEST TEST ACC", best_test, epoch)
-            
+
 writer.close()
     # save the model
     # torch.save(modelDataRaw_1.state_dict(), os.path.join('..', 'models', 'modelDataRaw_1.ckpt'))
