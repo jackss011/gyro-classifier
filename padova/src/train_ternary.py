@@ -16,7 +16,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--load_ckpt', type=str, default=None, help='Path to the checkpoint to load')
 
-    parser.add_argument('--bs', type=float, default=128)
+    parser.add_argument('--bs', type=int, default=128)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--wd', type=float, default=0.0001)
     parser.add_argument('--dreg', type=str, choices=delta_regimes.all_names)
