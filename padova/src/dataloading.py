@@ -1,4 +1,5 @@
 import os
+import torch
 
 def loadX(path: str, data_split: str):
   """Load the signals of accelerometer and gyroscope.
@@ -44,3 +45,37 @@ def loadY(path: str, data_split: str):
   """
   fileLables = open(os.path.join(path, f"y_{data_split}.txt"),"r")
   return [int(v) for v in fileLables]
+
+
+def get_dataloader_train(dataset_folder, batch_size):
+  # Read the training set
+  XtrainRaw1 = loadX(os.path.join(dataset_folder, 'train', r'Inertial Signals'), "train")
+  Ytrain1 = loadY(os.path.join(dataset_folder, "train"), "train")
+
+  numClasses = max(Ytrain1)
+
+  trainData = list()
+  for i in range(len(XtrainRaw1)):
+      sample = [XtrainRaw1[i]]
+      trainData.append((torch.tensor(sample, dtype=torch.float32), Ytrain1[i] - 1))
+
+  # Train loader
+  trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_size, shuffle=False)
+  return trainLoader, numClasses
+
+
+def get_dataloader_test(dataset_folder, batch_size):
+  # Read the test set
+  XtestRaw1 = loadX(os.path.join(dataset_folder, 'test', r'Inertial Signals'), "test")
+  Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
+  numClasses = max(Ytest1)
+
+  # Create the tensor for testing
+  testData = list()
+  for i in range(len(XtestRaw1)):
+      sample = [XtestRaw1[i]]
+      testData.append((torch.tensor(sample, dtype=torch.float32), Ytest1[i] - 1))
+
+  # Test loader
+  testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=False)
+  return testLoader, numClasses

@@ -134,7 +134,7 @@ model = CNN_ternary(
 ).to(device)
 
 # if f32_activations:
-init_weights(model)
+#init_weights(model)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
