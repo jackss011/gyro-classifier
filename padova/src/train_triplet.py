@@ -12,15 +12,30 @@ from datetime import datetime
 import utils
 
 if __name__ == '__main__':
+    # ========> DEVICE <=========
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
         print("using device: ", torch.cuda.get_device_name())
 
+    # ========> HPARAM <=========
     epochs = 10
     batch_size = 256
     lr = 0.001
     margin = 1.5
 
+    hparams = dict(lr=lr, bs=batch_size, margin=margin)
+
+    # ========> LOGGING <=========
+    time_folder = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    hparam_folder = utils.hparams_to_folder(hparams)
+    exp_folder = f"triplet/{time_folder}/{hparam_folder}"
+
+    log_path = Path('./logs/')    / exp_folder
+    res_path = Path('./results/') / exp_folder
+    log_path.mkdir(parents=True, exist_ok=True)
+    res_path.mkdir(parents=True, exist_ok=True)
+
+    # ========> DATASET <=========
     dataset_folder = Path("..") / "dataset" / "dataset1"
     train_ds = TripletDataset(dataset_folder, train=True)
     test_ds  = TripletDataset(dataset_folder, train=False)
@@ -30,11 +45,14 @@ if __name__ == '__main__':
     num_classes = train_ds.num_classes
     print("num classes:", train_ds.num_classes)
 
+    # ========> MODEL <=========
     model = CNN_binary(num_classes).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     distance_fn = torch.nn.PairwiseDistance(p=2)
     criterion = torch.nn.TripletMarginWithDistanceLoss(distance_function=distance_fn, margin=margin, swap=True, reduction="mean")
 
+
+    # ========> TRAINING <=========
     for e in tqdm(range(1, epochs + 1), desc="epochs"):
         model.train()
 
@@ -50,7 +68,7 @@ if __name__ == '__main__':
             loss = criterion(anchor_out, pos_out, neg_out)
             loss.backward()
             optimizer.step()
-            
+
             running_loss.append(loss.item())
 
         mean_loss = np.array(running_loss).mean()
