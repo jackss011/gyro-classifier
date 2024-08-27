@@ -8,14 +8,16 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import argparse
 from datetime import datetime
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import utils
 
 if __name__ == '__main__':
     # ========> DEVICE <=========
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
-        print("using device: ", torch.cuda.get_device_name())
+        print("using device:", torch.cuda.get_device_name())
+    else:
+        print("using device:", "cpu")
 
     # ========> HPARAM <=========
     epochs = 10
@@ -30,10 +32,12 @@ if __name__ == '__main__':
     hparam_folder = utils.hparams_to_folder(hparams)
     exp_folder = f"triplet/{time_folder}/{hparam_folder}"
 
-    log_path = Path('./logs/')    / exp_folder
-    res_path = Path('./results/') / exp_folder
-    log_path.mkdir(parents=True, exist_ok=True)
-    res_path.mkdir(parents=True, exist_ok=True)
+    log_folder = Path('./logs/')    / exp_folder
+    res_folder = Path('./results/') / exp_folder
+    log_folder.mkdir(parents=True, exist_ok=True)
+    res_folder.mkdir(parents=True, exist_ok=True)
+
+    summary = SummaryWriter(log_folder)
 
     # ========> DATASET <=========
     dataset_folder = Path("..") / "dataset" / "dataset1"
@@ -72,4 +76,5 @@ if __name__ == '__main__':
             running_loss.append(loss.item())
 
         mean_loss = np.array(running_loss).mean()
-        print("loss:", mean_loss)
+        summary.add_scalar("train/loss", mean_loss, e)
+        print(">> loss:", mean_loss)

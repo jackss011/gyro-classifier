@@ -83,7 +83,7 @@ def get_dataloader_test(dataset_folder, batch_size):
 
 
 class TripletDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset_folder, train=True):
+    def __init__(self, dataset_folder: str, *, train: bool):
         self.dataset_folder = dataset_folder
         self.is_train = train
 
