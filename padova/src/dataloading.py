@@ -82,6 +82,32 @@ def get_dataloader_test(dataset_folder, batch_size):
     return testLoader, numClasses
 
 
+
+class ListDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset_folder: str, *, train: bool):
+        self.dataset_folder = dataset_folder
+        self.is_train = train
+
+        which_ds = "train" if self.is_train else "test"
+
+        X_raw = loadX(os.path.join(dataset_folder, which_ds, 'Inertial Signals'), which_ds)
+        y_raw = loadY(os.path.join(dataset_folder, which_ds), which_ds)
+
+        self.num_classes = max(y_raw)
+        self.X = [torch.tensor([x], dtype=torch.float32) for x in X_raw]
+        self.y = [y - 1 for y in y_raw]
+        self.labels = np.array(self.y, dtype=np.int16)
+
+        assert(len(self.X) == len(self.y))
+
+    def __len__(self):
+        return len(self.y)
+    
+    def __getitem__(self, index: int):
+        return self.X[index], self.y[index]
+
+
+
 class TripletDataset(torch.utils.data.Dataset):
     def __init__(self, dataset_folder: str, *, train: bool):
         self.dataset_folder = dataset_folder
