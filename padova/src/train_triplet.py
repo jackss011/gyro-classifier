@@ -21,13 +21,14 @@ else:
 
 # ========> ARGS <=========
 ps = argparse.ArgumentParser()
+ps.add_argument('--epochs', type=int, default=100, help="number of training epochs")
 ps.add_argument('--bs', type=int, help="batch size")
 ps.add_argument('--lr', type=float, help="learning rate")
 ps.add_argument('--margin', type=float, default=1.5, help="triplet loss margin")
 args = ps.parse_args()
 
 # ========> HPARAMS <=========
-epochs = 500
+epochs = args.epochs    # 500
 batch_size = args.bs    # 256
 lr = args.lr            # 0.001
 margin = args.margin    # 1.5
@@ -40,13 +41,13 @@ time_folder = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 hparam_folder = utils.hparams_to_folder(hparams)
 exp_folder = f"triplet/{time_folder}/{hparam_folder}"
 
-log_folder = Path('./logs/')    / exp_folder
+log_folder = Path('./logs-triplet/')    / exp_folder
 res_folder = Path('./results/') / exp_folder
 log_folder.mkdir(parents=True, exist_ok=True)
 res_folder.mkdir(parents=True, exist_ok=True)
 
 summary = SummaryWriter(log_folder)
-ckpt_file = res_folder / "best_model.ph"
+ckpt_file = res_folder / "best_model.pth"
 
 # ========> DATASET <=========
 dataset_folder = Path("..") / "dataset" / "dataset1"
