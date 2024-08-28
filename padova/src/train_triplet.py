@@ -62,6 +62,7 @@ print("num classes:", train_ds.num_classes)
 # ========> MODEL <=========
 model = CNN_binary(num_classes).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.1, patience=5)
 
 distance_fn = torch.nn.PairwiseDistance(p=2)
 criterion = torch.nn.TripletMarginWithDistanceLoss(distance_function=distance_fn, margin=margin, swap=True, reduction="mean")
@@ -95,50 +96,53 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
     print(">> training loss:", mean_loss)
 
     # ========> VALIDATION <=========
-    if e % 10 == 0: # every 10 epoch
-        # ==> on training set <==
-        with torch.no_grad():
-            model.eval()
+    with torch.no_grad():
+        model.eval()
 
-            running_loss = []
-            for anchor, pos, neg, _, _, _ in tqdm(train_loader, desc="validation (traning set)", leave=False):
-                anchor, pos, neg = anchor.to(device), pos.to(device), neg.to(device)
+        running_loss = []
+        for anchor, pos, neg, _, _, _ in tqdm(test_loader, desc="validation (test set)", leave=False):
+            anchor, pos, neg = anchor.to(device), pos.to(device), neg.to(device)
 
-                anchor_out = model.net(anchor)
-                pos_out = model.net(pos)
-                neg_out = model.net(neg)
+            anchor_out = model.net(anchor)
+            pos_out = model.net(pos)
+            neg_out = model.net(neg)
 
-                loss = val_criterion(anchor_out, pos_out, neg_out)
-                running_loss.append(loss.item())
+            loss = val_criterion(anchor_out, pos_out, neg_out)
+            running_loss.append(loss.item())
 
-            mean_loss = np.array(running_loss).mean()
-            summary.add_scalar("validation/loss_training", mean_loss, e)
-            print(">> validation loss (training set):", mean_loss)
+        mean_loss = np.array(running_loss).mean()
+        summary.add_scalar("validation/loss_test", mean_loss, e)
+        print(">> validation loss (test set):", mean_loss)
 
-    if e % 1 == 0: # every 10 epochs
-        # ==> on test set <==
-        with torch.no_grad():
-            model.eval()
-
-            running_loss = []
-            for anchor, pos, neg, _, _, _ in tqdm(test_loader, desc="validation (test set)", leave=False):
-                anchor, pos, neg = anchor.to(device), pos.to(device), neg.to(device)
-
-                anchor_out = model.net(anchor)
-                pos_out = model.net(pos)
-                neg_out = model.net(neg)
-
-                loss = val_criterion(anchor_out, pos_out, neg_out)
-                running_loss.append(loss.item())
-
-            mean_loss = np.array(running_loss).mean()
-            summary.add_scalar("validation/loss_test", mean_loss, e)
-            print(">> validation loss (test set):", mean_loss)
-
-            if mean_loss < loweset_validation_loss:
-                loweset_validation_loss = mean_loss
-                print(">> best model found")
-                torch.save(model.state_dict(), ckpt_file)
+        if mean_loss < loweset_validation_loss:
+            loweset_validation_loss = mean_loss
+            print(">> best model found")
+            torch.save(model.state_dict(), ckpt_file)
+        
+        scheduler.step(mean_loss)
+        summary.add_scalar("lr", scheduler.get_last_lr()[0], e)
 
     print("\n") # some space between epochs
 
+
+
+
+#  if e % 10 == 0: # every 10 epoch
+#         # ==> on training set <==
+#         with torch.no_grad():
+#             model.eval()
+
+#             running_loss = []
+#             for anchor, pos, neg, _, _, _ in tqdm(train_loader, desc="validation (traning set)", leave=False):
+#                 anchor, pos, neg = anchor.to(device), pos.to(device), neg.to(device)
+
+#                 anchor_out = model.net(anchor)
+#                 pos_out = model.net(pos)
+#                 neg_out = model.net(neg)
+
+#                 loss = val_criterion(anchor_out, pos_out, neg_out)
+#                 running_loss.append(loss.item())
+
+#             mean_loss = np.array(running_loss).mean()
+#             summary.add_scalar("validation/loss_training", mean_loss, e)
+#             print(">> validation loss (training set):", mean_loss)
