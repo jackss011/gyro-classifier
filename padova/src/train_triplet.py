@@ -75,7 +75,7 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
     model.train()
 
     running_loss = []
-    for anchor, pos, neg, _, _, _ in tqdm(train_loader, desc="training epoch", leave=False):
+    for anchor, pos, neg, _, _, _ in tqdm(train_loader, desc="batches", leave=False):
         anchor, pos, neg = anchor.to(device), pos.to(device), neg.to(device)
 
         optimizer.zero_grad()
@@ -135,6 +135,7 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
             print(">> validation loss (test set):", mean_loss)
 
             if mean_loss < loweset_validation_loss:
+                loweset_validation_loss = mean_loss
                 print(">> best model found")
                 torch.save(model.state_dict(), ckpt_file)
 
