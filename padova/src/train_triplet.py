@@ -1,10 +1,11 @@
 import torch
 from dataloading import TripletDataset
-from models_binary import CNN_binary, CNN_binary_relu, init_weights
+from models_binary import CNN_binary
+import models_binary
+from models import CNN
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
-import torch.nn as nn
 from torch.utils.data import DataLoader
 import argparse
 from datetime import datetime
@@ -21,33 +22,36 @@ else:
 
 # ========> ARGS <=========
 ps = argparse.ArgumentParser()
+ps.add_argument('--model', type=str, choices=['full', 'bin'], help="which model", required=True)
 ps.add_argument('--epochs', type=int, default=100, help="number of training epochs")
-ps.add_argument('--bs', type=int, help="batch size")
-ps.add_argument('--lr', type=float, help="learning rate")
+ps.add_argument('--bs', type=int, help="batch size", required=True)
+ps.add_argument('--lr', type=float, help="learning rate", required=True)
 ps.add_argument('--margin', type=float, default=1.5, help="triplet loss margin")
+ps.add_argument('--dist', type=str, choices=['euc', 'cos'], default='euc', help='distance function')
 args = ps.parse_args()
 
 # ========> HPARAMS <=========
-epochs = args.epochs    # 500
+model_name = args.model
+epochs = args.epochs    # 100
 batch_size = args.bs    # 256
-lr = args.lr            # 0.001
+lr = args.lr            # 0.01
 margin = args.margin    # 1.5
+distance_name = args.dist
 
-hparams = dict(lr=lr, bs=batch_size, margin=margin)
+hparams = dict(model=model_name, lr=lr, bs=batch_size, margin=margin, dist=distance_name)
 print("hyper-parameters:", hparams)
 
 # ========> LOGGING <=========
-time_folder = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-hparam_folder = utils.hparams_to_folder(hparams)
-exp_folder = f"triplet/{time_folder}/{hparam_folder}"
+time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+exp_folder = f"{model_name}/{time}/{utils.hparams_to_folder(hparams)}"
 
-log_folder = Path('./logs-triplet/')    / exp_folder
-res_folder = Path('./results/') / exp_folder
+log_folder = Path('./logs-triplet/')     / exp_folder
+res_folder = Path('./results-triplet/')  / exp_folder
 log_folder.mkdir(parents=True, exist_ok=True)
 res_folder.mkdir(parents=True, exist_ok=True)
 
 summary = SummaryWriter(log_folder)
-ckpt_file = res_folder / "best_model.pth"
+ckpt_file = res_folder / f"best.{model_name}.pth"
 
 # ========> DATASET <=========
 dataset_folder = Path("..") / "dataset" / "dataset1"
@@ -60,8 +64,14 @@ num_classes = train_ds.num_classes
 print("num classes:", train_ds.num_classes)
 
 # ========> MODEL <=========
-model = CNN_binary(num_classes).to(device)
-# init_weights(model)
+if model_name == 'full':
+    model = CNN(num_classes).to(device)
+elif model_name == 'bin':
+    model = CNN_binary(num_classes).to(device)
+    models_binary.init_weights(model)
+else:
+    raise ValueError(f"invalid model name: {model_name}")
+
 extract_features = lambda x: model.net(x).reshape(x.size(0), -1)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)

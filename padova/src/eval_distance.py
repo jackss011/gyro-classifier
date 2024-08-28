@@ -9,9 +9,11 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from scipy.spatial import distance_matrix
 from sklearn.metrics import roc_auc_score, roc_curve
+from pathlib import Path
 
 from dataloading import get_dataloader_test
 from models_binary import CNN_binary
+from models import CNN
 
 
 
@@ -23,15 +25,25 @@ def parse_args():
 
 
 
-def infer_matrices(model_path: str, batch_size=256):
+def infer_matrices(model_path: Path, batch_size=256):
     dataset_folder = os.path.join('..', 'dataset', 'dataset1')
     test_loader, num_classes = get_dataloader_test(dataset_folder, batch_size)
 
     print("num of classes: ", int(num_classes))
     print("num samples:", len(test_loader) * batch_size)
 
-    model = CNN_binary(num_classes)
-    model.load_state_dict(torch.load(model_path, weights_only=False))
+    model_name = model_path.suffixes[-2][1:]
+    print("loading model:", model_name)
+
+    if model_name == 'full':
+        model = CNN(num_classes)
+        model.load_state_dict(torch.load(model_path, weights_only=False))
+    elif model_name == 'bin':
+        model = CNN_binary(num_classes)
+        model.load_state_dict(torch.load(model_path, weights_only=False))
+    else:
+        raise ValueError(f"invalid model name ({model_name}) in path: {model_path}")
+    
     model.eval()
     extractor = model.net
 
@@ -89,7 +101,7 @@ if __name__ == "__main__":
     class_matrix_path = model_path.parent / 'class_matrix_euc.pt'
 
     if not load:
-        dist_matrix, mask_matrix, class_matrix = infer_matrices(str(model_path))
+        dist_matrix, mask_matrix, class_matrix = infer_matrices(model_path)
 
         torch.save(dist_matrix, dist_matrix_path)
         torch.save(mask_matrix, mask_matrix_path)
