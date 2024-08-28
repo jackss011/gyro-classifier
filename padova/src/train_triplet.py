@@ -46,7 +46,7 @@ log_folder.mkdir(parents=True, exist_ok=True)
 res_folder.mkdir(parents=True, exist_ok=True)
 
 summary = SummaryWriter(log_folder)
-ckpt_file = res_folder / "best_model.pth"
+ckpt_file = res_folder / "best_model.ph"
 
 # ========> DATASET <=========
 dataset_folder = Path("..") / "dataset" / "dataset1"
