@@ -41,8 +41,9 @@ batch_size = args.bs    # 256
 lr = args.lr            # 0.01
 margin = args.margin    # 1.5
 distance_name = args.dist
+assert(distance_name == 'euc') # 'cos' not implemented yet
 
-hparams = dict(model=model_name, lr=lr, bs=batch_size, margin=margin, dist=distance_name)
+hparams = dict(model=model_name, epochs=epochs, lr=lr, bs=batch_size, margin=margin, dist=distance_name)
 print("hyper-parameters:", hparams)
 
 # ========> LOGGING <=========
@@ -118,8 +119,11 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         model.eval()
 
         running_loss = []
+        running_pos_dist = []
+        running_neg_dist = []
         count = 0
         correct = 0
+
         for anchor, pos, neg, _, _, _ in tqdm(test_loader, desc="validation (test set)", leave=False):
             anchor, pos, neg = anchor.to(device), pos.to(device), neg.to(device)
 
@@ -133,22 +137,35 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
             pos_dist = val_distance_fn(anchor_out, pos_out)
             neg_dist = val_distance_fn(anchor_out, neg_out)
 
+            running_pos_dist.append(pos_dist.mean().item())
+            running_neg_dist.append(neg_dist.mean().item())
+
             count += pos_dist.size(0)
             correct += torch.sum(pos_dist < neg_dist).item()
 
+        # loss
         mean_loss = np.array(running_loss).mean()
         summary.add_scalar("validation/loss_test", mean_loss, e)
         print(">> validation loss (test set):", mean_loss)
 
+        # distances
+        mean_pos_dist = np.array(running_pos_dist).mean()
+        mean_neg_dist = np.array(running_neg_dist).mean()
+        summary.add_scalar("inspection/mean_anchor_positive_distance", mean_pos_dist, e)
+        summary.add_scalar("inspection/mean_anchor_negative_distance", mean_neg_dist, e)
+
+        # accuracy
         perc_accuracy = correct / count
         summary.add_scalar("validation/accuracy", perc_accuracy, e)
         print(f">> accuracy (test set): {perc_accuracy*100:.1f}")
 
+        # checkpoint
         if mean_loss < lowest_validation_loss:
             lowest_validation_loss = mean_loss
             print(">> best model found")
             torch.save(model.state_dict(), ckpt_file)
         
+        # lr scheduler
         scheduler.step(mean_loss)
         summary.add_scalar("lr", scheduler.get_last_lr()[0], e)
 
@@ -158,7 +175,8 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
 # ========> EVALUATION <=========
 if args.eval:
     print("\n\n==== Evaluation ====")
-    evaluate_distance(ckpt_file)
+    auc_score = evaluate_distance(ckpt_file)
+    summary.add_scalar("eval/roc_auc_score", auc_score, epochs)
 
 
 #  if e % 10 == 0: # every 10 epoch

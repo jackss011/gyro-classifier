@@ -130,6 +130,7 @@ def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix):
     plt.close()
 
     print(f"ROC AUC score: {auc_score:.3f}")
+    return auc_score
 
 
 def evaluate_distance(model_path: Path, load=False):
@@ -151,9 +152,11 @@ def evaluate_distance(model_path: Path, load=False):
         mask_matrix = torch.load(mask_matrix_path, weights_only=False)
         class_matrix = torch.load(class_matrix_path, weights_only=False)
         print("loaded matrices!")
-
+        
     print(f"matrices shape: mask {mask_matrix.shape} - class {class_matrix.shape} - dist {dist_matrix.shape}")
-    generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix)
+
+    auc_score = generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix)
+    return auc_score
 
 
 if __name__ == "__main__":
