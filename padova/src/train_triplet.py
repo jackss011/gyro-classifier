@@ -87,7 +87,7 @@ criterion = torch.nn.TripletMarginWithDistanceLoss(distance_function=distance_fn
 val_distance_fn = torch.nn.PairwiseDistance(p=2)
 val_criterion = torch.nn.TripletMarginWithDistanceLoss(distance_function=val_distance_fn, margin=margin, swap=False, reduction="mean")
 
-loweset_validation_loss = float('inf')
+lowest_validation_loss = float('inf')
 
 for e in tqdm(range(1, epochs + 1), desc="epochs"):
     # ========> TRAINING <=========
@@ -144,8 +144,8 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         summary.add_scalar("validation/accuracy", perc_accuracy, e)
         print(f">> accuracy (test set): {perc_accuracy*100:.1f}")
 
-        if mean_loss < loweset_validation_loss:
-            loweset_validation_loss = mean_loss
+        if mean_loss < lowest_validation_loss:
+            lowest_validation_loss = mean_loss
             print(">> best model found")
             torch.save(model.state_dict(), ckpt_file)
         
