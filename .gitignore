@@ -5,7 +5,11 @@ logs
 dataset
 data
 results
+results-triplet
 __pycache__
 logs*
 *.png
 ckpts
+*.pth
+*.ph
+*.pt

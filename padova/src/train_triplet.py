@@ -1,16 +1,19 @@
 import torch
-from dataloading import TripletDataset
-from models_binary import CNN_binary
-import models_binary
-from models import CNN
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from tqdm import tqdm
-from pathlib import Path
-from torch.utils.data import DataLoader
-import argparse
 from datetime import datetime
-from torch.utils.tensorboard import SummaryWriter
+from pathlib import Path
+import argparse
+
+import models_binary
+from models_binary import CNN_binary
+from models import CNN
+from dataloading import TripletDataset
 import utils
+from eval_distance import evaluate_distance
+
 
 
 # ========> DEVICE <=========
@@ -28,6 +31,7 @@ ps.add_argument('--bs', type=int, help="batch size", required=True)
 ps.add_argument('--lr', type=float, help="learning rate", required=True)
 ps.add_argument('--margin', type=float, default=1.5, help="triplet loss margin")
 ps.add_argument('--dist', type=str, choices=['euc', 'cos'], default='euc', help='distance function')
+ps.add_argument('--eval', type=bool, default=True, action=argparse.BooleanOptionalAction)
 args = ps.parse_args()
 
 # ========> HPARAMS <=========
@@ -151,6 +155,10 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
     print("\n") # some space between epochs
 
 
+# ========> EVALUATION <=========
+if args.eval:
+    print("\n\n==== Evaluation ====")
+    evaluate_distance(ckpt_file)
 
 
 #  if e % 10 == 0: # every 10 epoch

@@ -17,14 +17,6 @@ from models import CNN
 
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--path', type=str, default=None, help='Path to the model')
-    parser.add_argument('--load', type=bool, default=False, action=argparse.BooleanOptionalAction)
-    return parser.parse_args()
-
-
-
 def infer_matrices(model_path: Path, batch_size=256):
     dataset_folder = os.path.join('..', 'dataset', 'dataset1')
     test_loader, num_classes = get_dataloader_test(dataset_folder, batch_size)
@@ -88,12 +80,59 @@ def infer_matrices(model_path: Path, batch_size=256):
     return dist_matrix, mask_matrix, class_matrix
 
 
+def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix):
+    # heatmaps
+    print("printing heatmaps...")
+    plt.figure()
+    sns.heatmap(mask_matrix)
+    plt.savefig(save_path / "mask-heatmap.png", dpi=200)
+    plt.close()
 
-if __name__ == "__main__":
-    args = parse_args()
-    model_path = Path(args.path) #"./ckpts/binary.ckpt"
-    load = args.load
+    plt.figure()
+    sns.heatmap(class_matrix)
+    plt.savefig(save_path / "class-heatmap.png", dpi=200)
+    plt.close()
 
+    plt.figure()
+    sns.heatmap(dist_matrix)
+    plt.savefig(save_path / "dist-heatmap.png", dpi=200)
+    plt.close()
+
+    # histogram
+    print("printing histogram...")
+    matching = dist_matrix[mask_matrix == 0].flatten()
+    not_matching = dist_matrix[mask_matrix == 1].flatten()
+    df_1 = pd.DataFrame({"distance": matching, "match_state": "match"})
+    df_2 = pd.DataFrame({"distance": not_matching, "match_state": "no_match"})
+    df = pd.concat((df_1, df_2))
+
+    sns.histplot(df, x="distance", hue="match_state", stat="density", common_norm=False)
+    plt.ylim((0, 0.4))
+    plt.xlim((0, 55))
+    plt.xlabel("Distance")
+    plt.savefig(save_path / "hist-plot.png", dpi=200)
+    plt.close()
+    
+    # ROC
+    print("printing ROC...")
+    y_true  = mask_matrix.flatten()
+    y_score = dist_matrix.flatten()
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score)
+    auc_score = roc_auc_score(y_true, y_score)
+
+    subsample = round(len(fpr) / 500) # render only about 500 curve points
+    sns.lineplot(x=fpr[::subsample], y=tpr[::subsample])
+    plt.title(f"ROC Curve (auc={auc_score:.3f})")
+    plt.xlabel("False positive rate")
+    plt.ylabel("True positive rate");
+    plt.savefig(save_path / "roc-plot.png", dpi=200)
+    plt.close()
+
+    print(f"ROC AUC score: {auc_score:.3f}")
+
+
+def evaluate_distance(model_path: Path, load=False):
     print(f">> dist evaluating: {model_path}, load: {load}")
 
     dist_matrix_path = model_path.parent / 'dist_matrix_euc.pt'
@@ -114,53 +153,13 @@ if __name__ == "__main__":
         print("loaded matrices!")
 
     print(f"matrices shape: mask {mask_matrix.shape} - class {class_matrix.shape} - dist {dist_matrix.shape}")
+    generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix)
 
-    # heatmaps
-    print("printing heatmaps...")
-    plt.figure()
-    sns.heatmap(mask_matrix)
-    plt.savefig(model_path.parent / "mask-heatmap.png", dpi=200)
-    plt.close()
 
-    plt.figure()
-    sns.heatmap(class_matrix)
-    plt.savefig(model_path.parent / "class-heatmap.png", dpi=200)
-    plt.close()
-
-    plt.figure()
-    sns.heatmap(dist_matrix)
-    plt.savefig(model_path.parent / "dist-heatmap.png", dpi=200)
-    plt.close()
-
-    # histogram
-    print("printing histogram...")
-    matching = dist_matrix[mask_matrix == 0].flatten()
-    not_matching = dist_matrix[mask_matrix == 1].flatten()
-    df_1 = pd.DataFrame({"distance": matching, "match_state": "match"})
-    df_2 = pd.DataFrame({"distance": not_matching, "match_state": "no_match"})
-    df = pd.concat((df_1, df_2))
-
-    sns.histplot(df, x="distance", hue="match_state", stat="density", common_norm=False)
-    plt.ylim((0, 0.4))
-    plt.xlim((0, 55))
-    plt.xlabel("Distance")
-    plt.savefig(model_path.parent / "hist-plot.png", dpi=200)
-    plt.close()
+if __name__ == "__main__":
+    ps = argparse.ArgumentParser()
+    ps.add_argument('--path', type=str, default=None, help='path to the model')
+    ps.add_argument('--load', type=bool, default=False, action=argparse.BooleanOptionalAction)
+    args = ps.parse_args()
     
-    # ROC
-    print("printing ROC...")
-    y_true  = mask_matrix.flatten()
-    y_score = dist_matrix.flatten()
-
-    fpr, tpr, thresholds = roc_curve(y_true, y_score)
-    auc_score = roc_auc_score(y_true, y_score)
-
-    subsample = round(len(fpr) / 500) # render only about 500 curve points
-    sns.lineplot(x=fpr[::subsample], y=tpr[::subsample])
-    plt.title(f"ROC Curve (auc={auc_score:.3f})")
-    plt.xlabel("False positive rate")
-    plt.ylabel("True positive rate");
-    plt.savefig(model_path.parent / "roc-plot.png", dpi=200)
-    plt.close()
-
-    print(f"ROC AUC score: {auc_score:.3f}")
+    evaluate_distance(Path(args.path), args.load)
