@@ -17,8 +17,7 @@ from models import CNN
 from models_ternary import CNN_ternary
 
 
-
-def infer_matrices(model_path: Path, batch_size=256):
+def infer_embeddings(model_path: Path, batch_size=256):
     dataset_folder = os.path.join('..', 'dataset', 'dataset1')
     test_loader, num_classes = get_dataloader_test(dataset_folder, batch_size)
 
@@ -28,20 +27,31 @@ def infer_matrices(model_path: Path, batch_size=256):
     model_name = model_path.suffixes[-2][1:]
     print("loading model:", model_name)
 
+    # handle different save types
+    save = torch.load(model_path, weights_only=False)
+    if type(save) == dict:
+        state = save['state']
+        inits = {k: v for k, v in save.items() if k != 'state'}
+        print("model init parameteres (fron dict):", inits)
+    elif type(save) == list:
+        state, inits = save
+        print("model init parameteres (fron list):", inits)
+    else:
+        state = save
+        inits = {}
+        
     if model_name == 'full':
-        model = CNN(num_classes)
-        model.load_state_dict(torch.load(model_path, weights_only=False))
+        model = CNN(num_classes, **inits)
     elif model_name == 'bin':
-        model = CNN_binary(num_classes)
-        model.load_state_dict(torch.load(model_path, weights_only=False))
+        model = CNN_binary(num_classes, **inits)
     elif model_name == 'ter':
-        save = torch.load(model_path, weights_only=False)
-        model = CNN_ternary(num_classes, delta=save['delta'])
-        model.load_state_dict(save['state'])
-        print('loaded delta:', save['delta'])
+        assert('delta' in inits)
+        model = CNN_ternary(num_classes, **inits)
+        print('loaded delta:', model._delta)
     else:
         raise ValueError(f"invalid model name ({model_name}) in path: {model_path}")
     
+    model.load_state_dict(state)
     model.eval()
     extractor = model.net
 
@@ -64,6 +74,12 @@ def infer_matrices(model_path: Path, batch_size=256):
     labels = labels[indices]
 
     print(f"embeddings shape: {embeddings.shape} - labels shape: {labels.shape}")
+    return embeddings, labels
+
+
+
+def infer_matrices(model_path: Path):
+    embeddings, labels = infer_embeddings(model_path)
 
     # compute mask_matrix, class_matrix
     print("generating class, mask matrix...")
@@ -84,6 +100,7 @@ def infer_matrices(model_path: Path, batch_size=256):
     dist_matrix = distance_matrix(embeddings, embeddings, p=2)
 
     return dist_matrix, mask_matrix, class_matrix
+
 
 
 def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix):
