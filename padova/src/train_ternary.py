@@ -264,7 +264,7 @@ for epoch in range(0, num_epochs):
             writer.add_scalar("BEST TEST ACC", best_test, epoch)
 
         # print zeros and +-1 weights
-        z, p1, m1, num = model.stats()
+        z, p1, m1, num = model.weight_count()
         z_perc, p1_perc, m1_perc = (z/num*100, p1/num*100, m1/num*100)
         writer.add_scalar("weights/zeros", z_perc, epoch)
         writer.add_scalar("weights/plus-one", p1_perc, epoch)

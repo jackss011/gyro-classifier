@@ -108,18 +108,13 @@ class CNN_binary_relu(nn.Module):
 
 
 def init_weights(model: nn.Module):
-    # nn.init.xavier_uniform_()
     print("initializing weights...")
     for m in model.modules():
         if isinstance(m, BinarizeConv2d):
-            # print("conv2", m)
-            # nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
             nn.init.normal_(m.weight, mean=0, std=0.1)
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0.001)
         elif isinstance(m, BinarizeLinear):
-            # print("lin", m)
-            # nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
             nn.init.normal_(m.weight, mean=0, std=0.1)
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0.001)

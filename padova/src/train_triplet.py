@@ -7,12 +7,16 @@ from datetime import datetime
 from pathlib import Path
 import argparse
 
+import utils
+from dataloading import TripletDataset
+from models import CNN
 import models_binary
 from models_binary import CNN_binary
-from models import CNN
-from dataloading import TripletDataset
-import utils
+import delta_regimes
+import models_ternary
+from models_ternary import CNN_ternary
 from eval_distance import evaluate_distance
+
 
 
 
@@ -25,13 +29,18 @@ else:
 
 # ========> ARGS <=========
 ps = argparse.ArgumentParser()
-ps.add_argument('--model', type=str, choices=['full', 'bin'], help="which model", required=True)
+ps.add_argument('--model', type=str, choices=['full', 'bin', 'ter'], help="which model", required=True)
 ps.add_argument('--epochs', type=int, default=100, help="number of training epochs")
 ps.add_argument('--bs', type=int, help="batch size", required=True)
 ps.add_argument('--lr', type=float, help="learning rate", required=True)
 ps.add_argument('--margin', type=float, default=1.5, help="triplet loss margin")
 ps.add_argument('--dist', type=str, choices=['euc', 'cos'], default='euc', help='distance function')
 ps.add_argument('--eval', type=bool, default=True, action=argparse.BooleanOptionalAction, help="calculate roc score and print graphs")
+# ternary delta regime specific
+ps.add_argument('--dreg', type=str,   default="const", choices=delta_regimes.all_names, help="delta regime curve")
+ps.add_argument('--dmin', type=float, default=0, help="delta at epoch 0")
+ps.add_argument('--dmaxep', type=int, default=50, help="epoch at which delta reaches dmax")
+ps.add_argument('--dmax', type=float, default=0.2, help="delta at epoch dmaxep")
 args = ps.parse_args()
 
 # ========> HPARAMS <=========
@@ -44,6 +53,15 @@ distance_name = args.dist
 assert(distance_name == 'euc') # 'cos' not implemented yet
 
 hparams = dict(model=model_name, epochs=epochs, lr=lr, bs=batch_size, margin=margin, dist=distance_name)
+
+# add delta regime hparams
+if model_name == 'ter':
+    hparams |= dict(dreg=args.dreg, dmin=args.dmin, dmaxep=args.dmaxep, dmax=args.dmax)
+    DeltaRegimeClass = delta_regimes.by_name(args.dreg)
+    delta_regime = DeltaRegimeClass(args.dmin, args.dmax, max_at_epoch=args.dmaxep)
+else:
+    delta_regime = None
+
 print("hyper-parameters:", hparams)
 
 # ========> LOGGING <=========
@@ -74,6 +92,9 @@ if model_name == 'full':
 elif model_name == 'bin':
     model = CNN_binary(num_classes).to(device)
     models_binary.init_weights(model)
+elif model_name == 'ter':
+    model = CNN_ternary(num_classes, delta=delta_regime.get(0)).to(device)
+    models_ternary.init_weights(model)
 else:
     raise ValueError(f"invalid model name: {model_name}")
 
@@ -109,7 +130,7 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         running_loss.append(loss.item())
 
         # binary/ternary: load 'org' weights
-        if model_name == 'bin':
+        if model_name in ['bin', 'ter']:
             for p in list(model.parameters()):
                 if hasattr(p, 'org'):
                     p.data.copy_(p.org)
@@ -117,14 +138,21 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         optimizer.step()
 
         # binary/ternary: save clamped weights to 'org'
-        if model_name == 'bin':
+        if model_name in ['bin', 'ter']:
             for p in list(model.parameters()):
                 if hasattr(p, 'org'):
                     p.org.copy_(p.data.clamp_(-1, 1))
 
+    # log
     mean_loss = np.array(running_loss).mean()
     summary.add_scalar("train/loss", mean_loss, e)
     print(">> training loss:", mean_loss)
+
+    if model_name == 'ter':
+        model.set_delta(delta_regime.get(e))
+        summary.add_scalar("ternary/delta", mean_loss, e)
+        zeros, _, _, total = model.weight_count()
+        summary.add_scalar("ternary/sparsity", zeros/total*100, e)
 
     # ========> VALIDATION <=========
     with torch.no_grad():
@@ -174,8 +202,13 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         # checkpoint
         if mean_loss < lowest_validation_loss:
             lowest_validation_loss = mean_loss
-            print(">> best model found")
-            torch.save(model.state_dict(), ckpt_file)
+            if model_name == 'ter':
+                save = {'state': model.state_dict(), 'delta': model._delta}
+                torch.save(save, ckpt_file)
+                print(f">> best model found (delta : {save['delta']})")
+            else:
+                torch.save(model.state_dict(), ckpt_file)
+                print(">> best model found")
         
         # lr scheduler
         scheduler.step(mean_loss)

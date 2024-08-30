@@ -11,6 +11,8 @@ class CNN_ternary(nn.Module):
         ch_l2 = 64
         ch_l3 = 128
         ch_fc = 2048
+
+        self._delta = delta
     
         self.net = nn.Sequential(
 
@@ -57,6 +59,7 @@ class CNN_ternary(nn.Module):
 
 
     def set_delta(self, delta: float):
+        self._delta = delta
         for m in self.modules(): 
             if isinstance(m, TernarizeConv2d):  
                 m.delta = delta
@@ -64,7 +67,7 @@ class CNN_ternary(nn.Module):
                 m.delta = delta
 
     
-    def stats(self):
+    def weight_count(self):
         zeros = 0
         plus_ones = 0
         minus_ones = 0
@@ -80,7 +83,7 @@ class CNN_ternary(nn.Module):
     
 
     def get_weights_entropy(self):
-        zeros, plus_ones, minus_ones, num_params = self.stats()
+        zeros, plus_ones, minus_ones, num_params = self.weight_count()
         ps = torch.tensor([zeros, plus_ones, minus_ones]) / num_params
         return -1 * (ps * torch.log2(ps + 1e-9)).sum().item()
 
@@ -102,17 +105,30 @@ class CNN_ternary(nn.Module):
 #             m.weight.data.fill_(1)
 #             m.bias.data.zero_()
 
+# def init_weights(model):  
+#     for m in model.modules():
+#         if isinstance(m, TernarizeConv2d):
+#             nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+#             if m.bias is not None:
+#                 nn.init.constant_(m.bias, 0.001)
+#         elif isinstance(m, TernarizeLinear):
+#             nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+#             if m.bias is not None:
+#                 nn.init.constant_(m.bias, 0.001)
+
 def init_weights(model):  
-    print("Initializing weights...")
+    print("initializing weights...")
     for m in model.modules():
         if isinstance(m, TernarizeConv2d):
-            # print("conv2", m)
-            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+            # nn.init.kaiming_uniform_(m.weight, nonlinearity='relu') # 0.991
+            # nn.init.normal_(m.weight, mean=0, std=0.1) # 0.990
+            nn.init.kaiming_normal_(m.weight) # 0.993
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0.001)
         elif isinstance(m, TernarizeLinear):
-            # print("lin", m)
-            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+            # nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+            # nn.init.normal_(m.weight, mean=0, std=0.1)
+            nn.init.kaiming_normal_(m.weight)
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0.001)
 
@@ -174,13 +190,24 @@ class TernarizeConv2d(nn.Conv2d):  # TernarizeConv2d
             out += self.bias.view(1, -1, 1, 1).expand_as(out)
 
         return out
-
+    
 
 def Ternarize(tensor, delta):
     cond1 = torch.abs(tensor) < delta
     cond2 = tensor >= delta
     cond3 = tensor <= -delta
-    t1 = torch.where(cond1, torch.tensor(0.).cuda(), tensor)
-    t2 = torch.where(cond2, torch.tensor(1.).cuda(), t1)
-    t3 = torch.where(cond3, torch.tensor(-1.).cuda(), t2)
+    t1 = torch.where(cond1, 0.0, tensor)
+    t2 = torch.where(cond2, 1.0, t1)
+    t3 = torch.where(cond3, -1.0, t2)
     return t3
+
+
+
+# def Ternarize(tensor, delta):
+#     cond1 = torch.abs(tensor) < delta
+#     cond2 = tensor >= delta
+#     cond3 = tensor <= -delta
+#     t1 = torch.where(cond1, torch.tensor(0.).cuda(), tensor)
+#     t2 = torch.where(cond2, torch.tensor(1.).cuda(), t1)
+#     t3 = torch.where(cond3, torch.tensor(-1.).cuda(), t2)
+#     return t3

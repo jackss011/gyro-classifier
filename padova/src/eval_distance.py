@@ -14,6 +14,7 @@ from pathlib import Path
 from dataloading import get_dataloader_test
 from models_binary import CNN_binary
 from models import CNN
+from models_ternary import CNN_ternary
 
 
 
@@ -33,6 +34,11 @@ def infer_matrices(model_path: Path, batch_size=256):
     elif model_name == 'bin':
         model = CNN_binary(num_classes)
         model.load_state_dict(torch.load(model_path, weights_only=False))
+    elif model_name == 'ter':
+        save = torch.load(model_path, weights_only=False)
+        model = CNN_ternary(num_classes, delta=save['delta'])
+        model.load_state_dict(save['state'])
+        print('loaded delta:', save['delta'])
     else:
         raise ValueError(f"invalid model name ({model_name}) in path: {model_path}")
     
