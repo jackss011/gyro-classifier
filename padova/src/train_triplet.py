@@ -31,7 +31,7 @@ ps.add_argument('--bs', type=int, help="batch size", required=True)
 ps.add_argument('--lr', type=float, help="learning rate", required=True)
 ps.add_argument('--margin', type=float, default=1.5, help="triplet loss margin")
 ps.add_argument('--dist', type=str, choices=['euc', 'cos'], default='euc', help='distance function')
-ps.add_argument('--eval', type=bool, default=True, action=argparse.BooleanOptionalAction)
+ps.add_argument('--eval', type=bool, default=True, action=argparse.BooleanOptionalAction, help="calculate roc score and print graphs")
 args = ps.parse_args()
 
 # ========> HPARAMS <=========
@@ -106,9 +106,21 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
 
         loss = criterion(anchor_out, pos_out, neg_out)
         loss.backward()
+        running_loss.append(loss.item())
+
+        # binary/ternary: load 'org' weights
+        if model_name == 'bin':
+            for p in list(model.parameters()):
+                if hasattr(p, 'org'):
+                    p.data.copy_(p.org)
+
         optimizer.step()
 
-        running_loss.append(loss.item())
+        # binary/ternary: save clamped weights to 'org'
+        if model_name == 'bin':
+            for p in list(model.parameters()):
+                if hasattr(p, 'org'):
+                    p.org.copy_(p.data.clamp_(-1, 1))
 
     mean_loss = np.array(running_loss).mean()
     summary.add_scalar("train/loss", mean_loss, e)
@@ -176,7 +188,7 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
 if args.eval:
     print("\n\n==== Evaluation ====")
     auc_score = evaluate_distance(ckpt_file)
-    summary.add_scalar("eval/roc_auc_score", auc_score, epochs)
+    summary.add_scalar("eval/roc_auc_score", auc_score * 100, epochs)
 
 
 #  if e % 10 == 0: # every 10 epoch
