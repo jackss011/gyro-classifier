@@ -156,7 +156,7 @@ def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix):
     return auc_score
 
 
-def evaluate_distance(model_path: Path, load=False):
+def evaluate_distance(model_path: Path, load=False, no_save=False):
     print(f">> dist evaluating: {model_path}, load: {load}")
 
     dist_matrix_path = model_path.parent / 'dist_matrix_euc.pt'
@@ -166,10 +166,13 @@ def evaluate_distance(model_path: Path, load=False):
     if not load:
         dist_matrix, mask_matrix, class_matrix = infer_matrices(model_path)
 
-        torch.save(dist_matrix, dist_matrix_path)
-        torch.save(mask_matrix, mask_matrix_path)
-        torch.save(class_matrix, class_matrix_path)
-        print("saved matrices!")
+        if no_save:
+            print("skipping matrix save!")
+        else:
+            torch.save(dist_matrix, dist_matrix_path)
+            torch.save(mask_matrix, mask_matrix_path)
+            torch.save(class_matrix, class_matrix_path)
+            print("saved matrices!")
     else:
         dist_matrix = torch.load(dist_matrix_path, weights_only=False)
         mask_matrix = torch.load(mask_matrix_path, weights_only=False)

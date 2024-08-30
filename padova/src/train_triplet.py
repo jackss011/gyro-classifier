@@ -186,7 +186,7 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         mean_pos_dist = np.array(running_pos_dist).mean()
         mean_neg_dist = np.array(running_neg_dist).mean()
         summary.add_scalars("inspection/mean_distance", {"ap": mean_pos_dist, "an": mean_neg_dist}, e)
-        
+
         # accuracy
         perc_accuracy = correct / count
         summary.add_scalar("validation/accuracy", perc_accuracy, e)
@@ -220,7 +220,7 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
 # ========> EVALUATION <=========
 if args.eval:
     print("\n\n==== Evaluation ====")
-    auc_score = evaluate_distance(ckpt_file)
+    auc_score = evaluate_distance(ckpt_file, no_save=True)
     summary.add_scalar("eval/roc_auc_score", auc_score * 100, epochs)
 
 summary.close()
