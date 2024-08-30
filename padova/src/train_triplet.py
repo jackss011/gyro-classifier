@@ -148,12 +148,6 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
     summary.add_scalar("train/loss", mean_loss, e)
     print(">> training loss:", mean_loss)
 
-    if model_name == 'ter':
-        model.set_delta(delta_regime.get(e))
-        summary.add_scalar("ternary/delta", mean_loss, e)
-        zeros, _, _, total = model.weight_count()
-        summary.add_scalar("ternary/sparsity", zeros/total*100, e)
-
     # ========> VALIDATION <=========
     with torch.no_grad():
         model.eval()
@@ -191,9 +185,8 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         # distances
         mean_pos_dist = np.array(running_pos_dist).mean()
         mean_neg_dist = np.array(running_neg_dist).mean()
-        summary.add_scalar("inspection/mean_anchor_positive_distance", mean_pos_dist, e)
-        summary.add_scalar("inspection/mean_anchor_negative_distance", mean_neg_dist, e)
-
+        summary.add_scalars("inspection/mean_distance", {"ap": mean_pos_dist, "an": mean_neg_dist}, e)
+        
         # accuracy
         perc_accuracy = correct / count
         summary.add_scalar("validation/accuracy", perc_accuracy, e)
@@ -214,6 +207,13 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         scheduler.step(mean_loss)
         summary.add_scalar("lr", scheduler.get_last_lr()[0], e)
 
+        # delta scheduler
+        if model_name == 'ter':
+            model.set_delta(delta_regime.get(e))
+            summary.add_scalar("ternary/delta", model._delta, e)
+            zeros, _, _, total = model.weight_count()
+            summary.add_scalar("ternary/sparsity", zeros/total*100, e)
+
     print("\n") # some space between epochs
 
 
@@ -223,6 +223,7 @@ if args.eval:
     auc_score = evaluate_distance(ckpt_file)
     summary.add_scalar("eval/roc_auc_score", auc_score * 100, epochs)
 
+summary.close()
 
 #  if e % 10 == 0: # every 10 epoch
 #         # ==> on training set <==
