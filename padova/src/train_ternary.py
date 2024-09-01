@@ -9,7 +9,8 @@ import delta_regimes
 import utils
 
 from dataloading import loadX, loadY
-from models_ternary import CNN_ternary, init_weights
+import models_ternary
+from models_ternary import CNN_ternary
 
 
 def parse_args():
@@ -19,7 +20,7 @@ def parse_args():
     parser.add_argument('--bs', type=int, default=128)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--wd', type=float, default=0.0001)
-    parser.add_argument('--dreg', type=str, choices=delta_regimes.all_names)
+    parser.add_argument('--dreg', type=str, choices=delta_regimes.all_names, default='const')
     parser.add_argument('--dmin', type=float, default=0)
     parser.add_argument('--dmax', type=float)
     parser.add_argument('--dmaxep', type=int, default=200)
@@ -65,6 +66,8 @@ if f32_activations:
 if dropout > 0:
     hparams['drop'] = dropout
 
+print("hyper-parameters:", hparams)
+
 # training paths
 exp_name = 'ternary-init'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
@@ -100,10 +103,9 @@ Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 num_classes = int(max(Ytrain1))
 
 #debug print
-print("Number of classes: ", num_classes)
-print("Using a32: ", f32_activations)
-print("h-params: ", hparams)
-print("dropout: ", dropout)
+print("number of classes:", num_classes)
+print("using a32:", f32_activations)
+print("dropout:", dropout)
 
 
 # Create the tensor for training
@@ -125,16 +127,13 @@ trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_si
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 # Instantiate the CNN
-model = CNN_ternary(
-    num_classes, 
-    delta=delta_regime.get(0), 
+model_kwargs = dict(
     layer_inflation=layer_inflation, 
     f32_activations=f32_activations,
-    dropout=dropout,
-).to(device)
-
-# if f32_activations:
-#init_weights(model)
+    dropout=dropout
+)
+model = CNN_ternary(num_classes, **model_kwargs, delta=delta_regime.get(0)).to(device)
+models_ternary.init_weights(model)
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
@@ -258,7 +257,8 @@ for epoch in range(0, num_epochs):
 
             if best_test < (100 * correct / total):
                 best_test = 100 * correct / total
-                torch.save(model.state_dict(), ckpt_path)
+                save = dict(state=model.state_dict(), **model_kwargs, delta=model._delta)
+                torch.save(save, ckpt_path)
                 print('Best checkpoint saved!')
             print('BEST TEST ACC: {} %'.format(best_test))
             writer.add_scalar("BEST TEST ACC", best_test, epoch)
