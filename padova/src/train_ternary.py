@@ -151,7 +151,7 @@ best_test = 0.0
 if args.load_ckpt is not None:
     model.load_state_dict(torch.load(args.load_ckpt))
 else:
-    ckpt_path = save_path + '/model_best.ckpt'
+    ckpt_path = save_path + '/best.ter.ckpt'
 
 # main loop
 for epoch in range(0, num_epochs):

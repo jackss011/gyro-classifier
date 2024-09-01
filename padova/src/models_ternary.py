@@ -177,7 +177,7 @@ class TernarizeConv2d(nn.Conv2d):  # TernarizeConv2d
         max_w = torch.max(self.weight.org)
         d = (self.delta * max_w).item()
 
-        if not (self.is_first or self.f32_activations):  # doesn't ternarizza the first layer
+        if not (self.is_first or self.f32_activations):  # doesn't ternarize the first layer
             input.data = Ternarize(input.data, d) # ternary activations
             # print('binarizing [conv2d]')
         self.weight.data = Ternarize(self.weight.org, d)
