@@ -141,7 +141,7 @@ cost = nn.CrossEntropyLoss()
 # Setting the optimizer with the model parameters and learning rate
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
-lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', factor=0.1, patience=50)
+lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', factor=1/2, patience=50)
 
 # Define the total step to print how many steps are remaining when training
 total_step = len(trainLoader)

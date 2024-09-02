@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import torch
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import seaborn as sns
 from matplotlib import pyplot as plt
@@ -11,18 +12,21 @@ from scipy.spatial import distance_matrix
 from sklearn.metrics import roc_auc_score, roc_curve
 from pathlib import Path
 
-from dataloading import get_dataloader_test
+from dataloading import get_dataloader_test, ListDataset
 from models_binary import CNN_binary
 from models import CNN
 from models_ternary import CNN_ternary
 
 
-def infer_embeddings(model_path: Path, batch_size=256):
+def infer_embeddings(model_path: Path, batch_size=256, train_ds=False):
     dataset_folder = os.path.join('..', 'dataset', 'dataset1')
-    test_loader, num_classes = get_dataloader_test(dataset_folder, batch_size)
+    
+    ds = ListDataset(dataset_folder, train=train_ds)
+    loader = DataLoader(ds, batch_size=batch_size, shuffle=False)
+    num_classes = ds.num_classes
 
     print("num of classes: ", int(num_classes))
-    print("num samples:", len(test_loader) * batch_size)
+    print("num samples:", len(ds))
 
     model_name = model_path.suffixes[-2][1:]
     print("loading model:", model_name)
@@ -59,7 +63,7 @@ def infer_embeddings(model_path: Path, batch_size=256):
     embeddings, labels = [], []
 
     with torch.no_grad():
-        for X, y in tqdm(test_loader, desc="inference"):
+        for X, y in tqdm(loader, desc="inference"):
             e = extractor(X).reshape(X.size(0), -1)
 
             embeddings.append(e.numpy())
