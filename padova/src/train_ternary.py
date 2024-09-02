@@ -69,7 +69,7 @@ if dropout > 0:
 print("hyper-parameters:", hparams)
 
 # training paths
-exp_name = 'ternary-init'
+exp_name = 'ternary-adam'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 hparam_name = utils.hparams_to_folder(hparams)
 folder = f"{exp_name}/{time_name}/{hparam_name}"
@@ -139,8 +139,9 @@ models_ternary.init_weights(model)
 cost = nn.CrossEntropyLoss()
 
 # Setting the optimizer with the model parameters and learning rate
-# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+# optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', factor=0.1, patience=50)
 
 # Define the total step to print how many steps are remaining when training
 total_step = len(trainLoader)
@@ -202,20 +203,7 @@ for epoch in range(0, num_epochs):
 
     writer.add_scalar("TRAIN LOSS", epoch_loss/len(trainLoader), epoch)
 
-    # if epoch == 150:
-    #     for group in optimizer.param_groups:
-    #         group['lr'] /= 10
-    #         group['weight_decay'] /= 10
-
-    #     print(*optimizer.param_groups)
-
-    # if epoch == 225:
-    #     for group in optimizer.param_groups:
-    #         group['lr'] /= 10
-    #         # group['weight_decay'] /= 10
-
-
-    # once every n epochs
+    # once every 10 epochs validate on train
     if epoch % 10 == 0:
         model.eval()
         # track entropy of model weights
@@ -238,42 +226,58 @@ for epoch in range(0, num_epochs):
             print('TRAIN ACC: {} %'.format(train_acc))
             writer.add_scalar("TRAIN ACC", train_acc, epoch)
 
-        # validation on test
-        with torch.no_grad():  # Disable the computation of the gradient
-            correct = 0
-            total = 0
-            # Iterate for each signal
-            for signals, labels in testLoader:
-                signals = signals.to(device)
-                labels = labels.to(device)
-                outputs = model(signals)  # If batch_size>1, than the outputs is a matrix
-                _, predicted = torch.max(outputs.data, 1)  # The maximum value corresponds to the predicted subject
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+    # every epoch validate on test
+    model.eval()
+    with torch.no_grad():  # Disable the computation of the gradient
+        correct = 0
+        total = 0
+        # Iterate for each signal
+        for signals, labels in testLoader:
+            signals = signals.to(device)
+            labels = labels.to(device)
+            outputs = model(signals)  # If batch_size>1, than the outputs is a matrix
+            _, predicted = torch.max(outputs.data, 1)  # The maximum value corresponds to the predicted subject
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-            test_acc = 100 * correct / total
-            print('TEST ACC: {} %'.format(test_acc))
-            writer.add_scalar("TEST ACC", test_acc, epoch)
+        test_acc = 100 * correct / total
+        print('TEST ACC: {} %'.format(test_acc))
+        writer.add_scalar("TEST ACC", test_acc, epoch)
 
-            if best_test < (100 * correct / total):
-                best_test = 100 * correct / total
-                save = dict(state=model.state_dict(), **model_kwargs, delta=model._delta)
-                torch.save(save, ckpt_path)
-                print('Best checkpoint saved!')
-            print('BEST TEST ACC: {} %'.format(best_test))
-            writer.add_scalar("BEST TEST ACC", best_test, epoch)
+        if best_test < (100 * correct / total):
+            best_test = 100 * correct / total
+            save = dict(state=model.state_dict(), **model_kwargs, delta=model._delta)
+            torch.save(save, ckpt_path)
+            print('Best checkpoint saved!')
+        print('BEST TEST ACC: {} %'.format(best_test))
+        writer.add_scalar("BEST TEST ACC", best_test, epoch)
 
-        # print zeros and +-1 weights
-        z, p1, m1, num = model.weight_count()
-        z_perc, p1_perc, m1_perc = (z/num*100, p1/num*100, m1/num*100)
-        writer.add_scalar("weights/zeros", z_perc, epoch)
-        writer.add_scalar("weights/plus-one", p1_perc, epoch)
-        writer.add_scalar("weights/minus-one", m1_perc, epoch)
+    lr_scheduler.step(best_test)
+    writer.add_scalar("LR", lr_scheduler.get_last_lr()[0], epoch)
+
+    # print zeros and +-1 weights
+    z, p1, m1, num = model.weight_count()
+    z_perc, p1_perc, m1_perc = (z/num*100, p1/num*100, m1/num*100)
+    writer.add_scalar("weights/zeros", z_perc, epoch)
+    writer.add_scalar("weights/plus-one", p1_perc, epoch)
+    writer.add_scalar("weights/minus-one", m1_perc, epoch)
 
 
 # writer.add_hparams(
 #     hparams,
 #     {'hparam/best-test-acc': best_test}
 # )
+
+# if epoch == 150:
+#     for group in optimizer.param_groups:
+#         group['lr'] /= 10
+#         group['weight_decay'] /= 10
+
+#     print(*optimizer.param_groups)
+
+# if epoch == 225:
+#     for group in optimizer.param_groups:
+#         group['lr'] /= 10
+#         # group['weight_decay'] /= 10
 
 writer.close()
