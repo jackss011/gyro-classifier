@@ -83,3 +83,6 @@ low sparsity ~15%
 ROC AUC
 - euc  
 - cos 
+
+
+## classification tasks
