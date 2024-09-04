@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
@@ -50,7 +51,6 @@ batch_size = args.bs    # 256
 lr = args.lr            # 0.01
 margin = args.margin    # 1.5
 distance_name = args.dist
-assert(distance_name == 'euc') # 'cos' not implemented yet
 
 hparams = dict(model=model_name, epochs=epochs, lr=lr, bs=batch_size, margin=margin, dist=distance_name)
 
@@ -103,10 +103,16 @@ extract_features = lambda x: model.net(x).reshape(x.size(0), -1)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=15)
 
-distance_fn = torch.nn.PairwiseDistance(p=2)
-criterion = torch.nn.TripletMarginWithDistanceLoss(distance_function=distance_fn, margin=margin, swap=True, reduction="mean")
+if distance_name == 'euc':
+    distance_fn = torch.nn.PairwiseDistance(p=2)
+    val_distance_fn = torch.nn.PairwiseDistance(p=2)
+elif distance_name == 'cos':
+    distance_fn = lambda x, y: 1.0 - F.cosine_similarity(x, y)
+    val_distance_fn = lambda x, y: 1.0 - F.cosine_similarity(x, y)
+else:
+    raise ValueError(f"invalid distance function name {distance_name}")
 
-val_distance_fn = torch.nn.PairwiseDistance(p=2)
+criterion = torch.nn.TripletMarginWithDistanceLoss(distance_function=distance_fn, margin=margin, swap=True, reduction="mean")
 val_criterion = torch.nn.TripletMarginWithDistanceLoss(distance_function=val_distance_fn, margin=margin, swap=False, reduction="mean")
 
 lowest_validation_loss = float('inf')
@@ -185,7 +191,9 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         # distances
         mean_pos_dist = np.array(running_pos_dist).mean()
         mean_neg_dist = np.array(running_neg_dist).mean()
-        summary.add_scalars("inspection/mean_distance", {"ap": mean_pos_dist, "an": mean_neg_dist}, e)
+        summary.add_scalar("inspection/mean_distance_ap", mean_pos_dist, e)
+        summary.add_scalar("inspection/mean_distance_an", mean_neg_dist, e)
+        summary.add_scalar("inspection/mean_distance_difference", mean_neg_dist - mean_pos_dist, e)
 
         # accuracy
         perc_accuracy = correct / count
@@ -220,8 +228,14 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
 # ========> EVALUATION <=========
 if args.eval:
     print("\n\n==== Evaluation ====")
-    auc_score = evaluate_distance(ckpt_file, no_save=True)
-    summary.add_scalar("eval/roc_auc_score", auc_score * 100, epochs)
+
+    # evaluate using euc distance
+    auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="euc")
+    summary.add_scalar("eval/roc_auc_score_euc", auc_score * 100, epochs)
+
+    # evaluate using cos distance
+    auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="cos")
+    summary.add_scalar("eval/roc_auc_score_cos", auc_score * 100, epochs)
 
 summary.close()
 

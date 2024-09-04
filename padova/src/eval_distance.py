@@ -82,7 +82,7 @@ def infer_embeddings(model_path: Path, batch_size=256, train_ds=False):
 
 
 
-def infer_matrices(model_path: Path):
+def infer_matrices(model_path: Path, distance_fn="euc"):
     embeddings, labels = infer_embeddings(model_path)
 
     # compute mask_matrix, class_matrix
@@ -100,29 +100,39 @@ def infer_matrices(model_path: Path):
                 class_matrix[i, j] = -1
 
     # compute distance matrix (4mins for 4000 embeddings)
-    print("generating dist matrix...")
-    dist_matrix = distance_matrix(embeddings, embeddings, p=2)
+    print(f"generating dist matrix ({distance_fn})...")
+
+    if distance_fn == 'euc':
+        dist_matrix = distance_matrix(embeddings, embeddings, p=2)
+    elif distance_fn == 'cos':
+        norms = np.linalg.norm(embeddings, axis=1)
+        norms = norms.reshape((-1, 1)) @ norms.reshape((1, -1))
+        dist_matrix = 1.0 - (embeddings @ embeddings.T / norms)
+    else:
+        raise ValueError(f"invalid distance function name {distance_fn}")
 
     return dist_matrix, mask_matrix, class_matrix
 
 
 
-def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix):
+def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix, tag="euc"):
+    suffix = "_" + tag
+
     # heatmaps
     print("printing heatmaps...")
     plt.figure()
     sns.heatmap(mask_matrix)
-    plt.savefig(save_path / "mask-heatmap.png", dpi=200)
+    plt.savefig(save_path / f"mask-heatmap.png", dpi=200)
     plt.close()
 
     plt.figure()
     sns.heatmap(class_matrix)
-    plt.savefig(save_path / "class-heatmap.png", dpi=200)
+    plt.savefig(save_path / f"class-heatmap.png", dpi=200)
     plt.close()
 
     plt.figure()
     sns.heatmap(dist_matrix)
-    plt.savefig(save_path / "dist-heatmap.png", dpi=200)
+    plt.savefig(save_path / f"dist-heatmap{suffix}.png", dpi=200)
     plt.close()
 
     # histogram
@@ -134,10 +144,10 @@ def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix):
     df = pd.concat((df_1, df_2))
 
     sns.histplot(df, x="distance", hue="match_state", stat="density", common_norm=False)
-    plt.ylim((0, 0.4))
-    plt.xlim((0, 55))
-    plt.xlabel("Distance")
-    plt.savefig(save_path / "hist-plot.png", dpi=200)
+    # plt.ylim((0, 0.4))
+    # plt.xlim((0, 55))
+    plt.xlabel(f"Distance ({tag})")
+    plt.savefig(save_path / f"hist-plot{suffix}.png", dpi=200)
     plt.close()
     
     # ROC
@@ -150,25 +160,26 @@ def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix):
 
     subsample = round(len(fpr) / 500) # render only about 500 curve points
     sns.lineplot(x=fpr[::subsample], y=tpr[::subsample])
-    plt.title(f"ROC Curve (auc={auc_score:.3f})")
+    plt.title(f"ROC Curve ({tag}) [auc={auc_score*100:.1f}]")
     plt.xlabel("False positive rate")
     plt.ylabel("True positive rate");
-    plt.savefig(save_path / "roc-plot.png", dpi=200)
+    plt.savefig(save_path / f"roc-plot{suffix}.png", dpi=200)
     plt.close()
 
-    print(f"ROC AUC score: {auc_score:.3f}")
+    print(f"ROC AUC score ({tag}): {auc_score*100:.1f}")
     return auc_score
 
 
-def evaluate_distance(model_path: Path, load=False, no_save=False):
+def evaluate_distance(model_path: Path, distance_fn="euc", load=False, no_save=False):
     print(f">> dist evaluating: {model_path}, load: {load}")
+    print(f">> using distance:", distance_fn)
 
-    dist_matrix_path = model_path.parent / 'dist_matrix_euc.pt'
-    mask_matrix_path = model_path.parent / 'mask_matrix_euc.pt'
-    class_matrix_path = model_path.parent / 'class_matrix_euc.pt'
+    dist_matrix_path = model_path.parent / f'dist_matrix_{distance_fn}.pt'
+    mask_matrix_path = model_path.parent / f'mask_matrix_{distance_fn}.pt'
+    class_matrix_path = model_path.parent / f'class_matrix_{distance_fn}.pt'
 
     if not load:
-        dist_matrix, mask_matrix, class_matrix = infer_matrices(model_path)
+        dist_matrix, mask_matrix, class_matrix = infer_matrices(model_path, distance_fn=distance_fn)
 
         if no_save:
             print("skipping matrix save!")
@@ -185,14 +196,15 @@ def evaluate_distance(model_path: Path, load=False, no_save=False):
         
     print(f"matrices shape: mask {mask_matrix.shape} - class {class_matrix.shape} - dist {dist_matrix.shape}")
 
-    auc_score = generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix)
+    auc_score = generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix, tag=distance_fn)
     return auc_score
 
 
 if __name__ == "__main__":
     ps = argparse.ArgumentParser()
     ps.add_argument('--path', type=str, default=None, help='path to the model')
+    ps.add_argument('--dist', type=str, choices=['euc', 'cos'], default='euc', help='distance function')
     ps.add_argument('--load', type=bool, default=False, action=argparse.BooleanOptionalAction)
     args = ps.parse_args()
     
-    evaluate_distance(Path(args.path), args.load)
+    evaluate_distance(Path(args.path), distance_fn=args.dist, load=args.load)
