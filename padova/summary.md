@@ -69,15 +69,15 @@ ROC AUC
   
 ### BIN
 BEST HP
-bs=128, lr=0.01, margin=0.1
+bs=128, lr=0.01, margin=0.01
 
 ROC AUC
-- cos  98.93
-- euc  98.93
+- cos  99.14
+- euc  99.09
 
 ### TER
 BEST HP
-bs=256, lr=0.01, margin=1.5 => 99.33
+
 
 low sparsity ~15%
 ROC AUC

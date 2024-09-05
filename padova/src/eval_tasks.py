@@ -11,7 +11,7 @@ from eval_distance import infer_embeddings
 
 
 def eval_classification(model_path: Path):
-    print(">> evaluating tasks for model: ", model_path)
+    print(">> evaluating classification tasks for model: ", model_path)
 
     X_train, y_train = infer_embeddings(model_path, train_ds=True)
     X_test, y_test = infer_embeddings(model_path, train_ds=False)
@@ -34,12 +34,12 @@ def eval_classification(model_path: Path):
     print('SVM:', svm_score)
     results['svm'] = svm_score
 
-    print("training linear svm...")
-    lsvm = LinearSVC()
-    lsvm.fit(X_train, y_train)
-    lsvm_score = lsvm.score(X_test, y_test)
-    print('Linear SVM:', lsvm_score)
-    results['lsvm'] = lsvm_score
+    # print("training linear svm...")
+    # lsvm = LinearSVC(max_iter=100)
+    # lsvm.fit(X_train, y_train)
+    # lsvm_score = lsvm.score(X_test, y_test)
+    # print('Linear SVM:', lsvm_score)
+    # results['lsvm'] = lsvm_score
 
     print("training random forest...")
     RF = RandomForestClassifier()
@@ -50,7 +50,7 @@ def eval_classification(model_path: Path):
 
     with open(model_path.parent / "eval_class_results.csv", 'w') as f:
         for classifier, score in results.items():
-            f.write(f"{classifier}, {score * 100: .3f}")
+            f.write(f"{classifier}, {score * 100: .3f}\n")
 
 
 
