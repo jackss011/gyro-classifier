@@ -22,6 +22,7 @@ bs=128, lr=0.02
 #### roc auc
 - euc 97.7
 - cos 97.7
+- ham 97.5
 #### task:classification
 93.29 (knn)
 #### task:clustering
@@ -35,6 +36,7 @@ bs=128, lr=0.01, dreg=log, dmin=0, dmax=0.3, dmaxep=250
 #### roc auc
 - euc 96.7
 - cos 96.5
+- ham 96.0
 #### task:classification
 92.57 (svm)
 #### task:clustering
@@ -65,6 +67,7 @@ bs=128, lr=0.01, margin=1.5
 #### roc auc
 + euc 99.14
 - cos 98.8~
+- ham 98.9
 #### task:classification
 93.50 (svm)
 #### task:clustering
@@ -78,6 +81,7 @@ bs=256, lr=0.01, margin=1.5, dreg=log, dmax=0.2, dmaxep=20
 #### roc auc
 + euc 99.33
 - cos 99.2
+- ham 98.9
 #### task:classification
 93.58 (svm)
 #### task:clustering
@@ -108,6 +112,7 @@ bs=128, lr=0.01, margin=0.01
 #### roc auc
 + cos  99.12
 - euc  99.09
+- ham  99.0
 #### task:classification
 93.34 (svm)
 #### task:clustering
@@ -120,7 +125,8 @@ adj rand score: 0.814
 bs=256, lr=0.01, margin=0.008, dreg=const, dmax=50, dmaxep=20
 ####  roc auc
 + cos 99.37
-- euc  99.33
+- euc 99.33
+- ham 98.3
 #### task:classification
 93.45 (knn)
 #### task:clustering

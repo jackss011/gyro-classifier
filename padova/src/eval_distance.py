@@ -9,7 +9,7 @@ from tqdm import tqdm
 import seaborn as sns
 from matplotlib import pyplot as plt
 from scipy.spatial import distance_matrix
-from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import roc_auc_score, roc_curve, pairwise_distances
 from pathlib import Path
 
 from dataloading import get_dataloader_test, ListDataset
@@ -18,7 +18,7 @@ from models import CNN
 from models_ternary import CNN_ternary
 
 
-def infer_embeddings(model_path: Path, batch_size=256, train_ds=False):
+def infer_embeddings(model_path: Path, batch_size=256, train_ds=False, quantize=False):
     dataset_folder = os.path.join('..', 'dataset', 'dataset1')
     ds = ListDataset(dataset_folder, train=train_ds)
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False)
@@ -76,13 +76,28 @@ def infer_embeddings(model_path: Path, batch_size=256, train_ds=False):
     embeddings = embeddings[indices, :]
     labels = labels[indices]
 
+    if quantize:
+        if model_name == 'full':
+            raise ValueError(f"cant quantize full precision model")
+        elif model_name == 'bin':
+            embeddings = np.where(embeddings >= 0, 1, -1).astype(np.int16)
+            print("quantized (bin)!")
+        elif model_name == 'ter':
+            assert('delta' in inits)
+            delta = inits['delta']
+            embeddings = np.where(embeddings >= delta, 1, np.where(embeddings <= -delta, -1, 0)).astype(np.int16)
+            print("quantized (ter)!")
+        else:
+            raise ValueError(f"invalid model name ({model_name}) in path: {model_path}")
+
     print(f"embeddings shape: {embeddings.shape} - labels shape: {labels.shape}")
     return embeddings, labels
 
 
 
 def infer_matrices(model_path: Path, distance_fn="euc"):
-    embeddings, labels = infer_embeddings(model_path, train_ds=False)
+    do_quantize = (distance_fn == 'hamm') # only quantize if hamming distance
+    embeddings, labels = infer_embeddings(model_path, train_ds=False, quantize=do_quantize)
 
     # compute mask_matrix, class_matrix
     print("generating class, mask matrix...")
@@ -99,14 +114,18 @@ def infer_matrices(model_path: Path, distance_fn="euc"):
                 class_matrix[i, j] = -1
 
     # compute distance matrix (4mins for 4000 embeddings)
-    print(f"generating dist matrix ({distance_fn})...")
+    print(f"generating dist matrix ({distance_fn}, quantize={do_quantize})...")
 
     if distance_fn == 'euc':
-        dist_matrix = distance_matrix(embeddings, embeddings, p=2)
+        dist_matrix = pairwise_distances(embeddings, metric='euclidean')
+        # dist_matrix = distance_matrix(embeddings, embeddings, p=2)
     elif distance_fn == 'cos':
         norms = np.linalg.norm(embeddings, axis=1)
         norms = norms.reshape((-1, 1)) @ norms.reshape((1, -1))
         dist_matrix = 1.0 - (embeddings @ embeddings.T / norms)
+    elif distance_fn == 'hamm':
+        assert(np.sum(embeddings == 1) + np.sum(embeddings == 0) + np.sum(embeddings == -1) == embeddings.size)
+        dist_matrix = pairwise_distances(embeddings, metric='hamming')
     else:
         raise ValueError(f"invalid distance function name {distance_fn}")
 
@@ -202,7 +221,7 @@ def evaluate_distance(model_path: Path, distance_fn="euc", load=False, no_save=F
 if __name__ == "__main__":
     ps = argparse.ArgumentParser()
     ps.add_argument('--path', type=str, default=None, help='path to the model')
-    ps.add_argument('--dist', type=str, choices=['euc', 'cos'], default='euc', help='distance function')
+    ps.add_argument('--dist', type=str, choices=['euc', 'cos', 'hamm'], default='euc', help='distance function')
     ps.add_argument('--load', type=bool, default=False, action=argparse.BooleanOptionalAction)
     args = ps.parse_args()
     
