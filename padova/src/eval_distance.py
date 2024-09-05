@@ -20,7 +20,6 @@ from models_ternary import CNN_ternary
 
 def infer_embeddings(model_path: Path, batch_size=256, train_ds=False):
     dataset_folder = os.path.join('..', 'dataset', 'dataset1')
-    
     ds = ListDataset(dataset_folder, train=train_ds)
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False)
     num_classes = ds.num_classes
@@ -83,7 +82,7 @@ def infer_embeddings(model_path: Path, batch_size=256, train_ds=False):
 
 
 def infer_matrices(model_path: Path, distance_fn="euc"):
-    embeddings, labels = infer_embeddings(model_path)
+    embeddings, labels = infer_embeddings(model_path, train_ds=False)
 
     # compute mask_matrix, class_matrix
     print("generating class, mask matrix...")
