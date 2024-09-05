@@ -106,8 +106,8 @@ def generate_tsne(model_path: Path):
     plt.close()
 
 
-def eval_clustering(model_path):
-    print("\n\n>> evaluating clustering for model: ", model_path)
+def eval_clustering(model_path: Path):
+    print(">> evaluating clustering for model: ", model_path)
 
     X_test, y_test = infer_embeddings(model_path, train_ds=False)
     print("shapes:", X_test.shape, y_test.shape)
@@ -117,15 +117,22 @@ def eval_clustering(model_path):
 
     # dbscan = cluster.DBSCAN()
     # y_pred = dbscan.fit_predict(X_test)
+    results = dict()
 
     sh_score = metrics.silhouette_score(X_test, y_pred)
     print("silhouette score:", sh_score)
+    results['silhouette'] = sh_score
 
     rand_score = metrics.rand_score(y_test, y_pred)
     print("rand score:", rand_score)
+    results['rand'] = rand_score
 
     adj_rand_score = metrics.adjusted_rand_score(y_test, y_pred)
     print("adj rand score:", adj_rand_score)
+    results['rand_adj'] = adj_rand_score
+
+    df = pd.DataFrame(dict(value=results))
+    df.to_csv(model_path.parent / 'eval_cluster_results.csv', index=True, header=False)
 
 
 if __name__ == '__main__':
@@ -148,6 +155,8 @@ if __name__ == '__main__':
             print(mp)
 
     for mp in model_paths:
+        print("\n\n")
+        
         if args.task == 'class':
             eval_classification(mp)
         elif args.task == 'tsne':
