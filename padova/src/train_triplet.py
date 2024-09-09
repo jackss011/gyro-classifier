@@ -13,6 +13,7 @@ from dataloading import TripletDataset
 from models import CNN
 import models_binary
 from models_binary import CNN_binary
+from binary_modules import BinaryHammingLoss
 import delta_regimes
 import models_ternary
 from models_ternary import CNN_ternary
@@ -35,7 +36,7 @@ ps.add_argument('--epochs', type=int, default=100, help="number of training epoc
 ps.add_argument('--bs', type=int, help="batch size", required=True)
 ps.add_argument('--lr', type=float, help="learning rate", required=True)
 ps.add_argument('--margin', type=float, default=1.5, help="triplet loss margin")
-ps.add_argument('--dist', type=str, choices=['euc', 'cos'], default='euc', help='distance function')
+ps.add_argument('--dist', type=str, choices=['euc', 'cos', 'hamm'], default='euc', help='distance function')
 ps.add_argument('--eval', type=bool, default=True, action=argparse.BooleanOptionalAction, help="calculate roc score and print graphs")
 # ternary delta regime specific
 ps.add_argument('--dreg', type=str,   default="const", choices=delta_regimes.all_names, help="delta regime curve")
@@ -51,6 +52,9 @@ batch_size = args.bs    # 256
 lr = args.lr            # 0.01
 margin = args.margin    # 1.5
 distance_name = args.dist
+
+if distance_name == 'hamm':
+    assert(model_name in ['bin'])
 
 hparams = dict(model=model_name, epochs=epochs, lr=lr, bs=batch_size, margin=margin, dist=distance_name)
 
@@ -103,12 +107,21 @@ extract_features = lambda x: model.net(x).reshape(x.size(0), -1)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=15)
 
+# choose distance functions
 if distance_name == 'euc':
     distance_fn = torch.nn.PairwiseDistance(p=2)
     val_distance_fn = torch.nn.PairwiseDistance(p=2)
 elif distance_name == 'cos':
     distance_fn = lambda x, y: 1.0 - F.cosine_similarity(x, y)
     val_distance_fn = lambda x, y: 1.0 - F.cosine_similarity(x, y)
+elif distance_name == 'hamm':
+    if model_name == 'bin':
+        distance_fn = BinaryHammingLoss()
+        val_distance_fn = BinaryHammingLoss()
+    elif model_name == 'ter':
+        raise NotImplementedError()
+    else:
+        raise ValueError(f"cannot use `hamm` distance with model: {model_name}")
 else:
     raise ValueError(f"invalid distance function name {distance_name}")
 
@@ -236,6 +249,10 @@ if args.eval:
     # evaluate using cos distance
     auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="cos")
     summary.add_scalar("eval/roc_auc_score_cos", auc_score * 100, epochs)
+
+    # evaluate using hamm distance
+    auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="hamm")
+    summary.add_scalar("eval/roc_auc_score_hamm", auc_score * 100, epochs)
 
 summary.close()
 

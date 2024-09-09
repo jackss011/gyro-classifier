@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -51,3 +52,18 @@ class BinarizeLinear(nn.Linear):
             out += self.bias.view(1, -1).expand_as(out)
         return out
 
+
+
+
+def to_zero_one(x):
+    return torch.where(x > 0, 1.0, 0.0)
+
+class BinaryHammingLoss(nn.Module):
+    def __init__(self, *kargs, **kwargs):
+        super(BinaryHammingLoss, self).__init__(*kargs, **kwargs)
+
+    def forward(self, x, y):
+        x.data = to_zero_one(x.data)
+        y.data = to_zero_one(y.data)
+
+        return torch.abs(x - y).sum(dim=1) / x.size(1)
