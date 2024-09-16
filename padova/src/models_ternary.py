@@ -211,3 +211,16 @@ def Ternarize(tensor, delta):
 #     t2 = torch.where(cond2, torch.tensor(1.).cuda(), t1)
 #     t3 = torch.where(cond3, torch.tensor(-1.).cuda(), t2)
 #     return t3
+
+
+
+class TernaryHammingLoss(nn.Module):
+    def __init__(self, *kargs, delta, **kwargs):
+        super(TernaryHammingLoss, self).__init__(*kargs, **kwargs)
+        self.delta = delta
+
+    def forward(self, x, y):
+        x.data = Ternarize(x.data, self.delta)
+        y.data = Ternarize(y.data, self.delta)
+
+        return torch.abs(x - y).sum(dim=1) / x.size(1) / 2

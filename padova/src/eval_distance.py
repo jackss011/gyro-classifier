@@ -176,16 +176,17 @@ def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix, tag="euc"
     fpr, tpr, thresholds = roc_curve(y_true, y_score)
     auc_score = roc_auc_score(y_true, y_score)
 
-    subsample = round(len(fpr) / 500) # render only about 500 curve points
-    sns.lineplot(x=fpr[::subsample], y=tpr[::subsample])
-    plt.title(f"ROC Curve ({tag}) [auc={auc_score*100:.1f}]")
-    plt.xlabel("False positive rate")
-    plt.ylabel("True positive rate");
-    plt.savefig(save_path / f"roc-plot{suffix}.png", dpi=200)
-    plt.close()
-
-    print(f"ROC AUC score ({tag}): {auc_score*100:.1f}")
-    return auc_score
+    try:
+        subsample = round(len(fpr) / 500) + 1 # render only about 500 curve points
+        sns.lineplot(x=fpr[::subsample], y=tpr[::subsample])
+        plt.title(f"ROC Curve ({tag}) [auc={auc_score*100:.1f}]")
+        plt.xlabel("False positive rate")
+        plt.ylabel("True positive rate");
+        plt.savefig(save_path / f"roc-plot{suffix}.png", dpi=200)
+        plt.close()
+    finally:
+        print(f"ROC AUC score ({tag}): {auc_score*100:.1f}")
+        return auc_score
 
 
 def evaluate_distance(model_path: Path, distance_fn="euc", load=False, no_save=False):

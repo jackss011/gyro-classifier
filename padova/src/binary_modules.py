@@ -54,16 +54,12 @@ class BinarizeLinear(nn.Linear):
 
 
 
-
-def to_zero_one(x):
-    return torch.where(x > 0, 1.0, 0.0)
-
 class BinaryHammingLoss(nn.Module):
     def __init__(self, *kargs, **kwargs):
         super(BinaryHammingLoss, self).__init__(*kargs, **kwargs)
 
     def forward(self, x, y):
-        x.data = to_zero_one(x.data)
-        y.data = to_zero_one(y.data)
+        x.data = Binarize(x.data)
+        y.data = Binarize(y.data)
 
-        return torch.abs(x - y).sum(dim=1) / x.size(1)
+        return torch.abs(x - y).sum(dim=1) / x.size(1) / 2

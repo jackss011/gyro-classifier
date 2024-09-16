@@ -16,7 +16,7 @@ from models_binary import CNN_binary
 from binary_modules import BinaryHammingLoss
 import delta_regimes
 import models_ternary
-from models_ternary import CNN_ternary
+from models_ternary import CNN_ternary, TernaryHammingLoss
 from eval_distance import evaluate_distance
 
 
@@ -54,7 +54,7 @@ margin = args.margin    # 1.5
 distance_name = args.dist
 
 if distance_name == 'hamm':
-    assert(model_name in ['bin'])
+    assert(model_name in ['bin', 'ter'])
 
 hparams = dict(model=model_name, epochs=epochs, lr=lr, bs=batch_size, margin=margin, dist=distance_name)
 
@@ -119,7 +119,8 @@ elif distance_name == 'hamm':
         distance_fn = BinaryHammingLoss()
         val_distance_fn = BinaryHammingLoss()
     elif model_name == 'ter':
-        raise NotImplementedError()
+        distance_fn = TernaryHammingLoss(delta=delta_regime.get(0))
+        val_distance_fn = TernaryHammingLoss(delta=delta_regime.get(0))
     else:
         raise ValueError(f"cannot use `hamm` distance with model: {model_name}")
 else:
@@ -230,7 +231,13 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
 
         # delta scheduler
         if model_name == 'ter':
-            model.set_delta(delta_regime.get(e))
+            new_delta = delta_regime.get(e)
+            model.set_delta(new_delta)
+
+            if distance_name == 'hamm':
+                distance_fn.delta = new_delta
+                val_distance_fn.delta = new_delta
+
             summary.add_scalar("ternary/delta", model._delta, e)
             zeros, _, _, total = model.weight_count()
             summary.add_scalar("ternary/sparsity", zeros/total*100, e)

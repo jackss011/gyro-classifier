@@ -112,22 +112,34 @@
 
 ## ===========> BINARY HAMMING TRAINING
 
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.001
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.004
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.008
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.01
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.04
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.08
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.1
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.2
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.3
-python train_triplet.py --model bin --bs 128 --lr 0.01 --dist hamm --margin 0.4
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.001
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.004
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.008
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.01
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.04
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.08
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.1
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.2
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.3
+python train_triplet.py --model bin --bs 128 --lr 0.001 --dist hamm --margin 0.4
+
+
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.001  --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.004  --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.008  --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.01   --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.04   --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.08   --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.1    --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.2    --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.3    --dreg log --dmax 0.2  --dmaxep 50
+python train_triplet.py --model ter --dist hamm --bs 128 --lr 0.001      --margin 0.4    --dreg log --dmax 0.2  --dmaxep 50
 
 
 ## ===========> TER BEST LOG COS
-python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.01  --dreg log --dmax 0.2  --dmaxep 50
-python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.04  --dreg log --dmax 0.2  --dmaxep 50
-python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.08  --dreg log --dmax 0.2  --dmaxep 50
-python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.001 --dreg log --dmax 0.2  --dmaxep 50
-python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.004 --dreg log --dmax 0.2  --dmaxep 50
-python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.008 --dreg log --dmax 0.2  --dmaxep 50
+# python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.01  --dreg log --dmax 0.2  --dmaxep 50
+# python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.04  --dreg log --dmax 0.2  --dmaxep 50
+# python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.08  --dreg log --dmax 0.2  --dmaxep 50
+# python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.001 --dreg log --dmax 0.2  --dmaxep 50
+# python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.004 --dreg log --dmax 0.2  --dmaxep 50
+# python train_triplet.py --model ter --dist cos --bs 128 --lr 0.01      --margin 0.008 --dreg log --dmax 0.2  --dmaxep 50
