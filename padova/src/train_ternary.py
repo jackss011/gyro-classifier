@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('--dmaxep', type=int, default=200)
     parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument('--drop', type=float, default=0)
+    parser.add_argument('--full-fc', type=bool, default=False, action=argparse.BooleanOptionalAction)
 
     return parser.parse_args()
 
@@ -55,6 +56,7 @@ delta_regime_max = args.dmax
 delta_regime_max_epoch = args.dmaxep
 f32_activations = args.af32
 dropout = args.drop
+full_fc = args.full_fc
 
 # create delta regime class
 DeltaRegimeClass = delta_regimes.by_name(delta_regime_type)
@@ -65,11 +67,11 @@ if f32_activations:
     hparams['af32'] = 'Y'
 if dropout > 0:
     hparams['drop'] = dropout
-
-print("hyper-parameters:", hparams)
+if full_fc:
+    hparams['full-fc'] = 'Y'
 
 # training paths
-exp_name = 'ternary-adam'
+exp_name = 'ternary'
 time_name = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 hparam_name = utils.hparams_to_folder(hparams)
 folder = f"{exp_name}/{time_name}/{hparam_name}"
@@ -104,8 +106,7 @@ num_classes = int(max(Ytrain1))
 
 #debug print
 print("number of classes:", num_classes)
-print("using a32:", f32_activations)
-print("dropout:", dropout)
+print("hyper-parameters:", hparams)
 
 
 # Create the tensor for training
@@ -130,18 +131,20 @@ testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size
 model_kwargs = dict(
     layer_inflation=layer_inflation, 
     f32_activations=f32_activations,
-    dropout=dropout
+    dropout=dropout,
+    full_fc=full_fc,
 )
 model = CNN_ternary(num_classes, **model_kwargs, delta=delta_regime.get(0)).to(device)
 models_ternary.init_weights(model)
+print("fc type", type(model.fc))
 
 # Setting the loss function
 cost = nn.CrossEntropyLoss()
 
 # Setting the optimizer with the model parameters and learning rate
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-# optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
-lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', factor=1/2, patience=50)
+# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+# lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', factor=1/2, patience=50)
 
 # Define the total step to print how many steps are remaining when training
 total_step = len(trainLoader)
@@ -252,8 +255,8 @@ for epoch in range(0, num_epochs):
         print('BEST TEST ACC: {} %'.format(best_test))
         writer.add_scalar("BEST TEST ACC", best_test, epoch)
 
-    lr_scheduler.step(best_test)
-    writer.add_scalar("LR", lr_scheduler.get_last_lr()[0], epoch)
+    # lr_scheduler.step(best_test)
+    # writer.add_scalar("LR", lr_scheduler.get_last_lr()[0], epoch)
 
     # print zeros and +-1 weights
     z, p1, m1, num = model.weight_count()

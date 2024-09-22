@@ -3,7 +3,7 @@ from binary_modules import BinarizeLinear, BinarizeConv2d
 
 
 class CNN_binary(nn.Module):
-    def __init__(self, numClasses, layer_inflation=1, af32=False, dropout=0.0):
+    def __init__(self, numClasses, layer_inflation=1, af32=False, dropout=0.0, full_fc=False):
         super(CNN_binary, self).__init__()
         self.af32 = af32
         self.dropout = dropout
@@ -43,7 +43,7 @@ class CNN_binary(nn.Module):
             nn.Dropout2d(p=self.dropout),
         )
 
-        self.fc = BinarizeLinear(2048, numClasses, af32=self.af32)
+        self.fc = BinarizeLinear(2048, numClasses, af32=self.af32) if not full_fc else nn.Linear(2048, numClasses)
 
     def forward(self, x):
         # forward operation: propagates the input though the the layers predicting the result

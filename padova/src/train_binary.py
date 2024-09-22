@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument('--af32', type=bool, default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument('--model', type=str, default=None)
     parser.add_argument('--drop', type=float, default=0)
+    parser.add_argument('--full-fc', type=bool, default=False, action=argparse.BooleanOptionalAction)
     return parser.parse_args()
 
 args = parse_args()
@@ -35,6 +36,7 @@ lr_gamma = 0.1
 af32 = args.af32
 dropout = args.drop
 model_name = args.model
+full_fc = args.full_fc
 
 hparams = dict(bs=batch_size, lr=learning_rate)
 if af32:
@@ -43,6 +45,8 @@ if model_name:
     hparams['model'] = model_name
 if dropout > 0:
     hparams['drop'] = dropout
+if full_fc:
+    hparams['full-fc'] = 'Y'
 
 # choose binary model
 ModelSelected = None
@@ -84,14 +88,11 @@ Ytest1 = loadY(os.path.join(dataset_folder, "test"), "test")
 
 numClasses = max(Ytrain1)
 
-print("Model: ", ModelSelected)
-print("Activation f32: ", af32)
-print("Number of classes: ", int(numClasses))
+print("model: ", ModelSelected)
+print("number of classes: ", int(numClasses))
 print("LR steps: ", lr_steps)
 print("LR gamma: ", lr_gamma)
-
-if dropout:
-    print("Dropout: ", dropout)
+print("hparams:", hparams)
 
 # Create the tensor for training
 trainData = list()
@@ -110,8 +111,9 @@ trainLoader = torch.utils.data.DataLoader(dataset=trainData, batch_size=batch_si
 testLoader = torch.utils.data.DataLoader(dataset=testData, batch_size=batch_size, shuffle=True)
 
 # Instantiate the CNN
-# model = CNN_binary(numClasses, af32=af32).to(device)
-model = ModelSelected(numClasses, af32=af32, dropout=dropout).to(device)
+model_kwargs=dict(af32=af32, dropout=dropout, full_fc=full_fc)
+model = ModelSelected(numClasses, **model_kwargs).to(device)
+print("fc type", type(model.fc))
 
 if af32:
     init_weights(model)
@@ -219,7 +221,8 @@ for epoch in range(num_epochs):
 
             if best_test < (100 * correct / total):
                 best_test = 100 * correct / total
-                torch.save(model.state_dict(), ckpt_path)
+                save = {'state': model.state_dict(), **model_kwargs}
+                torch.save(save, ckpt_path)
                 print('Best checkpoint saved!')
             print('BEST TEST ACC: {} %'.format(best_test))
             writer.add_scalar("BEST TEST ACC", best_test, epoch)

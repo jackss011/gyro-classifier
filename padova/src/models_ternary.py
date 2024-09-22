@@ -4,7 +4,7 @@ import math
 
 
 class CNN_ternary(nn.Module):
-    def __init__(self, numClasses, layer_inflation=1, delta=0.1, f32_activations=False, dropout=0):
+    def __init__(self, numClasses, layer_inflation=1, delta=0.1, f32_activations=False, dropout=0, full_fc=False):
         super(CNN_ternary, self).__init__()
         
         ch_l1 = 32
@@ -46,8 +46,7 @@ class CNN_ternary(nn.Module):
             nn.Dropout2d(p=dropout),
         )
 
-        self.fc = TernarizeLinear(ch_fc, numClasses, delta=delta, f32_activations=f32_activations)
-
+        self.fc = TernarizeLinear(ch_fc, numClasses, delta=delta, f32_activations=f32_activations) if not full_fc else nn.Linear(2048, numClasses)
         # init_weights(self)
 
     def forward(self, x):
