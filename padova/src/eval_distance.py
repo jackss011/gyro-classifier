@@ -12,36 +12,47 @@ from scipy.spatial import distance_matrix
 from sklearn.metrics import roc_auc_score, roc_curve, pairwise_distances
 from pathlib import Path
 
-from dataloading import get_dataloader_test, ListDataset
+from dataloading import ListDataset, OpenListDataset
 from models_binary import CNN_binary
 from models import CNN
 from models_ternary import CNN_ternary
 
 
 def infer_embeddings(model_path: Path, batch_size=256, train_ds=False, quantize=False):
-    dataset_folder = os.path.join('..', 'dataset', 'dataset1')
-    ds = ListDataset(dataset_folder, train=train_ds)
-    loader = DataLoader(ds, batch_size=batch_size, shuffle=False)
-    num_classes = ds.num_classes
-
-    print("num of classes: ", int(num_classes))
-    print("num samples:", len(ds))
-
-    model_name = model_path.suffixes[-2][1:]
-    print("loading model:", model_name)
-
     # handle different save types
     save = torch.load(model_path, weights_only=False)
     if type(save) == dict:
-        state = save['state']
-        inits = {k: v for k, v in save.items() if k != 'state'}
+        state = save.pop('state')
+        open_set_split = save.pop('open', None)
+        open_set = open_set_split is not None
+        inits = save.copy()
+
         print("model init parameteres (fron dict):", inits)
+        if open_set:
+            print("doing open set on split num:", open_set_split)
     elif type(save) == list:
         state, inits = save
         print("model init parameteres (fron list):", inits)
     else:
         state = save
         inits = {}
+
+    # dataset/loader stuff
+    dataset_folder = os.path.join('..', 'dataset', 'dataset1')
+    if not open_set:
+        ds = ListDataset(dataset_folder, train=train_ds)
+    else:
+        ds = OpenListDataset(dataset_folder, train=train_ds, split_num=open_set_split)
+        print("test labels:", ds.test_labels)
+
+    loader = DataLoader(ds, batch_size=batch_size, shuffle=False)
+    num_classes = ds.num_classes
+    print("num of classes: ", int(num_classes))
+    print("num samples:", len(ds))
+
+    # load model
+    model_name = model_path.suffixes[-2][1:]
+    print("loading model:", model_name)
         
     if model_name == 'full':
         model = CNN(num_classes, **inits)
@@ -58,7 +69,7 @@ def infer_embeddings(model_path: Path, batch_size=256, train_ds=False, quantize=
     model.eval()
     extractor = model.net
 
-    # infer
+    # inference
     embeddings, labels = [], []
 
     with torch.no_grad():

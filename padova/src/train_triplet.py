@@ -9,7 +9,7 @@ from pathlib import Path
 import argparse
 
 import utils
-from dataloading import TripletDataset
+from dataloading import TripletDataset, OpenTripletDataset
 from models import CNN
 import models_binary
 from models_binary import CNN_binary
@@ -43,6 +43,7 @@ ps.add_argument('--dreg', type=str,   default="const", choices=delta_regimes.all
 ps.add_argument('--dmin', type=float, default=0, help="delta at epoch 0")
 ps.add_argument('--dmaxep', type=int, default=50, help="epoch at which delta reaches dmax")
 ps.add_argument('--dmax', type=float, default=0.2, help="delta at epoch dmaxep")
+ps.add_argument('--open', type=int, default=None, help="use open set dataset on selected split")
 args = ps.parse_args()
 
 # ========> HPARAMS <=========
@@ -52,6 +53,8 @@ batch_size = args.bs    # 256
 lr = args.lr            # 0.01
 margin = args.margin    # 1.5
 distance_name = args.dist
+open_set = args.open is not None
+open_set_split = args.open
 
 if distance_name == 'hamm':
     assert(model_name in ['bin', 'ter'])
@@ -65,6 +68,10 @@ if model_name == 'ter':
     delta_regime = DeltaRegimeClass(args.dmin, args.dmax, max_at_epoch=args.dmaxep)
 else:
     delta_regime = None
+
+if open_set:
+    assert(open_set_split >= 0 and open_set_split < 10)
+    hparams |= dict(open=open_set_split)
 
 print("hyper-parameters:", hparams)
 
@@ -82,13 +89,24 @@ ckpt_file = res_folder / f"best.{model_name}.pth"
 
 # ========> DATASET <=========
 dataset_folder = Path("..") / "dataset" / "dataset1"
-train_ds = TripletDataset(dataset_folder, train=True)
-test_ds  = TripletDataset(dataset_folder, train=False)
+if not open_set:
+    train_ds = TripletDataset(dataset_folder, train=True)
+    test_ds  = TripletDataset(dataset_folder, train=False)
+else:
+    train_ds = OpenTripletDataset(dataset_folder, train=True, split_num=open_set_split)
+    test_ds = OpenTripletDataset(dataset_folder, train=False, split_num=open_set_split)
 train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, )
 test_loader  = DataLoader(test_ds,  batch_size=batch_size, shuffle=True, )
 
 num_classes = train_ds.num_classes
 print("num classes:", train_ds.num_classes)
+
+if open_set:
+    print("selected labels:", train_ds.test_labels)
+    print("train labels:", set(train_ds.labels))
+    print("test labels:", set(test_ds.labels))
+    print(f"train samples: {len(train_ds)} | test samples: {len(test_ds)}")
+    assert(len(set(train_ds.labels).intersection(set(test_ds.labels))) == 0)
 
 # ========> MODEL <=========
 if model_name == 'full':
@@ -217,13 +235,15 @@ for e in tqdm(range(1, epochs + 1), desc="epochs"):
         # checkpoint
         if mean_loss < lowest_validation_loss:
             lowest_validation_loss = mean_loss
+
+            save = {'state': model.state_dict() }
             if model_name == 'ter':
-                save = {'state': model.state_dict(), 'delta': model._delta}
-                torch.save(save, ckpt_file)
-                print(f">> best model found (delta : {save['delta']})")
-            else:
-                torch.save(model.state_dict(), ckpt_file)
-                print(">> best model found")
+                save |= {'delta': model._delta}
+            if open_set:
+                save |= {'open': open_set_split}
+
+            torch.save(save, ckpt_file)
+            print(f">> best model found, (delta: {save.get('delta')}), (open split: {save.get('open')})")
         
         # lr scheduler
         scheduler.step(mean_loss)
@@ -257,9 +277,10 @@ if args.eval:
     auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="cos")
     summary.add_scalar("eval/roc_auc_score_cos", auc_score * 100, epochs)
 
-    # evaluate using hamm distance
-    auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="hamm")
-    summary.add_scalar("eval/roc_auc_score_hamm", auc_score * 100, epochs)
+    if model_name in ['bin', 'ter']:
+        # evaluate using hamm distance
+        auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="hamm")
+        summary.add_scalar("eval/roc_auc_score_hamm", auc_score * 100, epochs)
 
 summary.close()
 

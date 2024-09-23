@@ -145,3 +145,125 @@ class TripletDataset(torch.utils.data.Dataset):
         neg_label = self.y[neg_index]
 
         return anchor, pos, neg, anchor_label, pos_label, neg_label
+    
+
+
+class OpenListDataset(torch.utils.data.Dataset):
+    NUM_SPLITS = 10
+
+    def __init__(self, dataset_folder: str, *, train: bool, split_num: int):
+        self.dataset_folder = dataset_folder
+        self.is_train = train
+
+        X_raw_train = loadX(os.path.join(dataset_folder, "train", 'Inertial Signals'), "train")
+        y_raw_train = loadY(os.path.join(dataset_folder, "train"), "train")
+        X_raw_test = loadX(os.path.join(dataset_folder, "test", 'Inertial Signals'), "test")
+        y_raw_test = loadY(os.path.join(dataset_folder, "test"), "test")
+
+        # merge test train
+        X_raw = X_raw_train + X_raw_test
+        y_raw = y_raw_train + y_raw_test
+
+        self.num_classes = max(y_raw)
+        self.X = [torch.tensor([x], dtype=torch.float32) for x in X_raw]
+        self.y = [y - 1 for y in y_raw]
+        self.labels = np.array(self.y, dtype=np.int16)
+
+        assert(len(self.X) == len(self.y))
+
+        # list test labels
+        assert(split_num >= 0 and split_num < self.NUM_SPLITS)
+        test_label_count = round(self.num_classes/self.NUM_SPLITS)
+        test_label_min = split_num * test_label_count
+        test_labels_max = test_label_min + test_label_count
+        assert(test_label_min >= 0 and test_labels_max <= self.num_classes + test_label_count)
+
+        self.test_labels = list(range(test_label_min, test_labels_max))
+        
+        # filter merged dataset
+        is_selected = np.isin(self.labels, self.test_labels, invert=self.is_train)
+        self.X = [x for x, selected in zip(self.X, is_selected) if selected]
+        self.y = [y for y, selected in zip(self.y, is_selected) if selected]
+        self.labels = np.array(self.y, dtype=np.int16)
+
+        # sanity check
+        assert(len(self.X) == len(self.y))
+
+        if(self.is_train):
+            assert(not np.any(np.isin(self.labels, self.test_labels)))
+        else:
+            assert(np.all(np.isin(self.labels, self.test_labels)))
+
+    def __len__(self):
+        return len(self.y)
+    
+    def __getitem__(self, index: int):
+        return self.X[index], self.y[index]
+    
+
+class OpenTripletDataset(torch.utils.data.Dataset):
+    NUM_SPLITS = 10
+
+    def __init__(self, dataset_folder: str, *, train: bool, split_num: int):
+        self.dataset_folder = dataset_folder
+        self.is_train = train
+
+        X_raw_train = loadX(os.path.join(dataset_folder, "train", 'Inertial Signals'), "train")
+        y_raw_train = loadY(os.path.join(dataset_folder, "train"), "train")
+        X_raw_test = loadX(os.path.join(dataset_folder, "test", 'Inertial Signals'), "test")
+        y_raw_test = loadY(os.path.join(dataset_folder, "test"), "test")
+
+        # merge test train
+        X_raw = X_raw_train + X_raw_test
+        y_raw = y_raw_train + y_raw_test
+
+        self.num_classes = max(y_raw)
+        self.X = [torch.tensor([x], dtype=torch.float32) for x in X_raw]
+        self.y = [y - 1 for y in y_raw]
+        self.labels = np.array(self.y, dtype=np.int16)
+
+        assert(len(self.X) == len(self.y))
+
+        # find test labels
+        assert(split_num >= 0 and split_num < self.NUM_SPLITS)
+        test_label_count = round(self.num_classes/self.NUM_SPLITS)
+        test_label_min = split_num * test_label_count
+        test_labels_max = test_label_min + test_label_count
+        assert(test_label_min >= 0 and test_labels_max <= self.num_classes + test_label_count)
+
+        self.test_labels = list(range(test_label_min, test_labels_max))
+        
+        # filter merged dataset
+        is_selected = np.isin(self.labels, self.test_labels, invert=self.is_train)
+        self.X = [x for x, selected in zip(self.X, is_selected) if selected]
+        self.y = [y for y, selected in zip(self.y, is_selected) if selected]
+        self.labels = np.array(self.y, dtype=np.int16)
+
+        # sanity check
+        assert(len(self.X) == len(self.y))
+
+        if(self.is_train):
+            assert(not np.any(np.isin(self.labels, self.test_labels)))
+        else:
+            assert(np.all(np.isin(self.labels, self.test_labels)))
+
+    def __len__(self):
+        return len(self.y)
+    
+    def __getitem__(self, index: int):
+        anchor = self.X[index]
+        anchor_label = self.y[index]
+
+        pos_filter = (self.labels == anchor_label)
+        pos_filter[index] = 0 # avoid picking same item
+        pos_indices = pos_filter.nonzero()[0]
+        pos_index = np.random.choice(pos_indices)
+        pos = self.X[pos_index]
+        pos_label = self.y[pos_index]
+
+        neg_indices = (self.labels != anchor_label).nonzero()[0]
+        neg_index = np.random.choice(neg_indices)
+        neg = self.X[neg_index]
+        neg_label = self.y[neg_index]
+
+        return anchor, pos, neg, anchor_label, pos_label, neg_label
