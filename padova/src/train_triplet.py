@@ -3,10 +3,12 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 from pathlib import Path
 import argparse
+import json
 
 import utils
 from dataloading import TripletDataset, OpenTripletDataset
@@ -18,7 +20,7 @@ import delta_regimes
 import models_ternary
 from models_ternary import CNN_ternary, TernaryHammingLoss
 from eval_distance import evaluate_distance
-
+from eval_tasks import eval_clustering
 
 
 
@@ -270,17 +272,39 @@ if args.eval:
     print("\n\n==== Evaluation ====")
 
     # evaluate using euc distance
-    auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="euc")
-    summary.add_scalar("eval/roc_auc_score_euc", auc_score * 100, epochs)
+    euc_auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="euc", gen_graphs=False)
+    summary.add_scalar("eval/roc_auc_score_euc", euc_auc_score * 100, epochs)
 
     # evaluate using cos distance
-    auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="cos")
-    summary.add_scalar("eval/roc_auc_score_cos", auc_score * 100, epochs)
+    cos_auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="cos", gen_graphs=False)
+    summary.add_scalar("eval/roc_auc_score_cos", cos_auc_score * 100, epochs)
 
     if model_name in ['bin', 'ter']:
         # evaluate using hamm distance
-        auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="hamm")
-        summary.add_scalar("eval/roc_auc_score_hamm", auc_score * 100, epochs)
+        hamm_auc_score = evaluate_distance(ckpt_file, no_save=True, distance_fn="hamm", gen_graphs=False)
+        summary.add_scalar("eval/roc_auc_score_hamm", hamm_auc_score * 100, epochs)
+    else:
+        hamm_auc_score = None
+
+    if open_set:
+        sh_score, rand_score, adj_rand_score = eval_clustering(ckpt_file)
+
+        row = {
+            'dist': distance_name,
+            'model': model_name,
+            'hp': utils.hparams_to_folder(hparams),
+            'split': open_set_split,
+            'roc_euc': float(euc_auc_score),
+            'roc_cos': float(cos_auc_score),
+            'roc_hamm': float(hamm_auc_score) if hamm_auc_score is not None else None,
+            'silh': float(sh_score),
+            'rand': float(rand_score),
+            'rand_adj': float(adj_rand_score),
+        }
+
+        res_file = Path('./logs-triplet/') / 'open-set-results.jsonl'
+        with open(res_file, 'a', encoding='UTF-8') as f:
+            f.write(json.dumps(row) + '\n')
 
 summary.close()
 

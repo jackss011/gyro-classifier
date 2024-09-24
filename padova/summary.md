@@ -133,3 +133,45 @@ bs=256, lr=0.01, margin=0.008, dreg=const, dmax=50, dmaxep=20
 silhouette score: 0.172
 rand score: 0.996
 adj rand score: 0.812
+
+
+# OPEN SET
+## EUC DIST
+
+### FULL
+#### best hp
+lr=0.001, bs=256, margin=5.0
+
+### BIN
+#### best hp
+lr=0.01, bs=128, margin=10.0
+
+### TER
+#### best hp
+lr=0.01, bs=256, margin=10.0, dreg=const, dmax=0.2, dmaxep=50/100
+
+
+## COS DIST
+
+### FULL
+#### best hp
+lr=0.001, bs=256, margin=0.2
+
+### BIN
+#### best hp
+lr=0.01, bs=128, margin=0.08
+
+### TER
+#### best hp
+lr=0.01, bs=256, margin=0.1, dreg=const, dmax=0.2, dmaxep=50
+
+
+## HAMM DIST
+
+### BIN
+#### best hp
+lr=0.01, bs=128, margin=0.08
+
+### TER
+#### best hp
+lr=0.01, bs=256, margin=0.1, dreg=const, dmax=0.2, dmaxep=50/100

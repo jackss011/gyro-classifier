@@ -17,7 +17,7 @@ from eval_distance import infer_embeddings
 
 
 def eval_classification(model_path: Path):
-    print(">> evaluating classification tasks for model: ", model_path)
+    print("\n>> evaluating classification tasks for model: ", model_path)
 
     resutls_path = model_path.parent / "eval_class_results.csv"
     if resutls_path.exists():
@@ -86,7 +86,7 @@ def eval_classification(model_path: Path):
 
 
 def generate_tsne(model_path: Path):
-    print(">> generating tsne for model: ", model_path)
+    print("\n>> generating tsne for model: ", model_path)
 
     X_test, y_test = infer_embeddings(model_path, train_ds=False)
     print("shapes:", X_test.shape, y_test.shape)
@@ -107,12 +107,14 @@ def generate_tsne(model_path: Path):
 
 
 def eval_clustering(model_path: Path):
-    print(">> evaluating clustering for model: ", model_path)
+    print("\n>> evaluating clustering for model: ", model_path)
 
     X_test, y_test = infer_embeddings(model_path, train_ds=False)
     print("shapes:", X_test.shape, y_test.shape)
+    num_classes = len(set(y_test))
+    print("num classes:", num_classes)
 
-    kmeans = cluster.KMeans(n_clusters=118, random_state=42)
+    kmeans = cluster.KMeans(n_clusters=num_classes, random_state=42)
     y_pred = kmeans.fit_predict(X_test)
 
     # dbscan = cluster.DBSCAN()
@@ -133,6 +135,8 @@ def eval_clustering(model_path: Path):
 
     df = pd.DataFrame(dict(value=results))
     df.to_csv(model_path.parent / 'eval_cluster_results.csv', index=True, header=False)
+
+    return sh_score, rand_score, adj_rand_score
 
 
 if __name__ == '__main__':

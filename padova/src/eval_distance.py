@@ -21,6 +21,7 @@ from models_ternary import CNN_ternary
 def infer_embeddings(model_path: Path, batch_size=256, train_ds=False, quantize=False):
     # handle different save types
     save = torch.load(model_path, weights_only=False)
+    open_set = False
     if type(save) == dict:
         state = save.pop('state')
         open_set_split = save.pop('open', None)
@@ -144,7 +145,7 @@ def infer_matrices(model_path: Path, distance_fn="euc"):
 
 
 
-def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix, tag="euc"):
+def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix, fpr, tpr, auc_score, tag="euc"):
     suffix = "_" + tag
 
     # heatmaps
@@ -180,14 +181,8 @@ def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix, tag="euc"
     plt.close()
     
     # ROC
-    print("printing ROC...")
-    y_true  = mask_matrix.flatten()
-    y_score = dist_matrix.flatten()
-
-    fpr, tpr, thresholds = roc_curve(y_true, y_score)
-    auc_score = roc_auc_score(y_true, y_score)
-
     try:
+        print("printing ROC...")
         subsample = round(len(fpr) / 500) + 1 # render only about 500 curve points
         sns.lineplot(x=fpr[::subsample], y=tpr[::subsample])
         plt.title(f"ROC Curve ({tag}) [auc={auc_score*100:.1f}]")
@@ -195,38 +190,29 @@ def generate_graphs(save_path, dist_matrix, mask_matrix, class_matrix, tag="euc"
         plt.ylabel("True positive rate");
         plt.savefig(save_path / f"roc-plot{suffix}.png", dpi=200)
         plt.close()
-    finally:
-        print(f"ROC AUC score ({tag}): {auc_score*100:.1f}")
-        return auc_score
+    except:
+        pass
 
 
-def evaluate_distance(model_path: Path, distance_fn="euc", load=False, no_save=False):
-    print(f">> dist evaluating: {model_path}, load: {load}")
-    print(f">> using distance:", distance_fn)
+def evaluate_distance(model_path: Path, distance_fn="euc", load=False, no_save=False, gen_graphs=True):
+    print(f"\n>> dist evaluating: {model_path}, load: {load}")
+    print(f"using distance:", distance_fn)
 
-    dist_matrix_path = model_path.parent / f'dist_matrix_{distance_fn}.pt'
-    mask_matrix_path = model_path.parent / f'mask_matrix_{distance_fn}.pt'
-    class_matrix_path = model_path.parent / f'class_matrix_{distance_fn}.pt'
-
-    if not load:
-        dist_matrix, mask_matrix, class_matrix = infer_matrices(model_path, distance_fn=distance_fn)
-
-        if no_save:
-            print("skipping matrix save!")
-        else:
-            torch.save(dist_matrix, dist_matrix_path)
-            torch.save(mask_matrix, mask_matrix_path)
-            torch.save(class_matrix, class_matrix_path)
-            print("saved matrices!")
-    else:
-        dist_matrix = torch.load(dist_matrix_path, weights_only=False)
-        mask_matrix = torch.load(mask_matrix_path, weights_only=False)
-        class_matrix = torch.load(class_matrix_path, weights_only=False)
-        print("loaded matrices!")
-        
+    dist_matrix, mask_matrix, class_matrix = infer_matrices(model_path, distance_fn=distance_fn)
+    
     print(f"matrices shape: mask {mask_matrix.shape} - class {class_matrix.shape} - dist {dist_matrix.shape}")
 
-    auc_score = generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix, tag=distance_fn)
+    # calculate roc
+    y_true  = mask_matrix.flatten()
+    y_score = dist_matrix.flatten()
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score)
+    auc_score = roc_auc_score(y_true, y_score)
+
+    if gen_graphs:
+        generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix, fpr, tpr, auc_score, tag=distance_fn)
+
+    print(f"ROC AUC score ({distance_fn}): {auc_score*100:.1f}")
     return auc_score
 
 
@@ -238,3 +224,46 @@ if __name__ == "__main__":
     args = ps.parse_args()
     
     evaluate_distance(Path(args.path), distance_fn=args.dist, load=args.load)
+
+
+
+
+
+# def evaluate_distance(model_path: Path, distance_fn="euc", load=False, no_save=False, gen_graphs=True):
+#     print(f">> dist evaluating: {model_path}, load: {load}")
+#     print(f">> using distance:", distance_fn)
+
+#     dist_matrix_path = model_path.parent / f'dist_matrix_{distance_fn}.pt'
+#     mask_matrix_path = model_path.parent / f'mask_matrix_{distance_fn}.pt'
+#     class_matrix_path = model_path.parent / f'class_matrix_{distance_fn}.pt'
+
+#     # save and load distance matrixes (not really needed)
+#     if not load:
+#         dist_matrix, mask_matrix, class_matrix = infer_matrices(model_path, distance_fn=distance_fn)
+
+#         if no_save:
+#             print("skipping matrix save!")
+#         else:
+#             torch.save(dist_matrix, dist_matrix_path)
+#             torch.save(mask_matrix, mask_matrix_path)
+#             torch.save(class_matrix, class_matrix_path)
+#             print("saved matrices!")
+#     else:
+#         dist_matrix = torch.load(dist_matrix_path, weights_only=False)
+#         mask_matrix = torch.load(mask_matrix_path, weights_only=False)
+#         class_matrix = torch.load(class_matrix_path, weights_only=False)
+#         print("loaded matrices!")
+        
+#     print(f"matrices shape: mask {mask_matrix.shape} - class {class_matrix.shape} - dist {dist_matrix.shape}")
+
+#     # calculate roc
+#     y_true  = mask_matrix.flatten()
+#     y_score = dist_matrix.flatten()
+
+#     fpr, tpr, thresholds = roc_curve(y_true, y_score)
+#     auc_score = roc_auc_score(y_true, y_score)
+
+#     if gen_graphs:
+#         generate_graphs(model_path.parent, dist_matrix, mask_matrix, class_matrix, fpr, tpr, auc_score, tag=distance_fn)
+
+#     return auc_score
